@@ -7,11 +7,11 @@ local Services = {
 
 local Settings = {
 	Ground_Kick_Max = 50,
-	Air_Kick_Max = 70,
+	Air_Kick_Max = 90,
 	Ground_Kick_Height = 15,
-	Air_Kick_Height = 35,
+	Air_Kick_Height = 70,
 	Possession_Timeout = 0.5,
-	Touch_Cooldown = 0.3
+	Touch_Cooldown = 0.5
 }
 
 local Ball = workspace:WaitForChild("Ball")
@@ -34,6 +34,8 @@ PossessionChanged.Parent = RemoteFolder
 local CurrentOwner = nil
 local OwnershipStart = 0
 local BallAttachment = nil
+local BallSpinner = nil
+local BallAxle = nil
 local TouchCooldown = {}
 
 -- Create attachment weld
@@ -41,31 +43,73 @@ local function AttachBallToPlayer(Character, RootPart)
 	if BallAttachment then
 		BallAttachment:Destroy()
 	end
+	if BallSpinner then
+		BallSpinner:Destroy()
+	end
+	if BallAxle then
+		BallAxle:Destroy()
+	end
 
 	-- Position ball in front of player at foot level
-	local Offset = RootPart.CFrame.LookVector * 2
+	local Offset = RootPart.CFrame.LookVector * 2.2
 	Ball.CFrame = CFrame.new(
-		Vector3.new(RootPart.Position.X, RootPart.Position.Y - 2.5, RootPart.Position.Z) + 
+		Vector3.new(RootPart.Position.X, RootPart.Position.Y - 2, RootPart.Position.Z) + 
 			Vector3.new(Offset.X, 0, Offset.Z)
 	)
 
-	-- Create weld to root part (more stable than leg)
-	local Weld = Instance.new("WeldConstraint")
-	Weld.Part0 = Ball
-	Weld.Part1 = RootPart
-	Weld.Name = "BallWeld"
-	Weld.Parent = RootPart
+	-- Create invisible "axle" part at ball center
+	local Axle = Instance.new("Part")
+	Axle.Name = "BallAxle"
+	Axle.Size = Vector3.new(0.5, 0.5, 0.5)
+	Axle.Transparency = 1
+	Axle.CanCollide = false
+	Axle.Massless = true
+	Axle.CFrame = Ball.CFrame
+	Axle.Parent = workspace
+	BallAxle = Axle
+
+	-- Weld axle to player (this stays fixed)
+	local AxleWeld = Instance.new("WeldConstraint")
+	AxleWeld.Part0 = Axle
+	AxleWeld.Part1 = RootPart
+	AxleWeld.Parent = Axle
+
+	-- Create attachments for HingeConstraint
+	local AxleAttachment = Instance.new("Attachment")
+	AxleAttachment.CFrame = CFrame.Angles(math.rad(90), 0, 0) -- Rotate for pitch (forward/backward spin)
+	AxleAttachment.Parent = Axle
+
+	local BallAttachment0 = Instance.new("Attachment")
+	BallAttachment0.Parent = Ball
+
+	-- Create HingeConstraint to allow ball to spin on Y axis only
+	local Hinge = Instance.new("HingeConstraint")
+	Hinge.Attachment0 = AxleAttachment
+	Hinge.Attachment1 = BallAttachment0
+	Hinge.ActuatorType = Enum.ActuatorType.Motor
+	Hinge.MotorMaxTorque = 10000
+	Hinge.AngularVelocity = 10 -- Spin speed
+	Hinge.Parent = Axle
 
 	Ball.CanCollide = false
-	BallAttachment = Weld
+	BallAttachment = AxleWeld
+	BallSpinner = Hinge
 
-	return Weld
+	return AxleWeld
 end
 
 local function DetachBall()
 	if BallAttachment then
 		BallAttachment:Destroy()
 		BallAttachment = nil
+	end
+	if BallSpinner then
+		BallSpinner:Destroy()
+		BallSpinner = nil
+	end
+	if BallAxle then
+		BallAxle:Destroy()
+		BallAxle = nil
 	end
 	Ball.CanCollide = true
 	local OldOwner = CurrentOwner
@@ -93,6 +137,11 @@ end
 
 -- Handle ball touches
 Ball.Touched:Connect(function(Part)
+	-- Don't allow attachment if ball has BodyVelocity (still flying from a kick)
+	if Ball:FindFirstChildOfClass("BodyVelocity") then
+		return
+	end
+
 	local Character = Part.Parent
 	if not Character then
 		return
@@ -163,9 +212,10 @@ KickBall.OnServerEvent:Connect(function(Player, KickType, Power, Direction)
 
 	local MaxPower = KickType == "Ground" and Settings.Ground_Kick_Max or Settings.Air_Kick_Max
 	local MaxHeight = KickType == "Ground" and Settings.Ground_Kick_Height or Settings.Air_Kick_Height
-	local Force = MaxPower * Power
+	local Force = MaxPower * Power * 2
 	local Height = MaxHeight * Power
 
+	-- Apply velocity
 	local Velocity = Instance.new("BodyVelocity")
 	Velocity.Parent = Ball
 	Velocity.MaxForce = Vector3.new(1, 1, 1) * math.huge
@@ -177,6 +227,19 @@ KickBall.OnServerEvent:Connect(function(Player, KickType, Power, Direction)
 	end
 
 	Services.Debris:AddItem(Velocity, 0.2)
+
+	---- Apply angular velocity (spin)
+	--local AngularVelocity = Instance.new("BodyAngularVelocity")
+	--AngularVelocity.Parent = Ball
+	--AngularVelocity.MaxTorque = Vector3.new(1, 1, 1) * math.huge
+	--
+	---- Spin perpendicular to kick direction for realistic ball spin
+	--local SpinAxis = Direction:Cross(Vector3.new(0, 1, 0)).Unit
+	--local SpinSpeed = Force * 0.5 -- Spin speed scales with kick power
+	--AngularVelocity.AngularVelocity = SpinAxis * SpinSpeed
+	--
+	--Services.Debris:AddItem(AngularVelocity, 0.3)
+
 	KickSound:Play()
 end)
 
@@ -185,7 +248,7 @@ local RunService = game:GetService("RunService")
 local DAMPING = 0.99
 
 RunService.Heartbeat:Connect(function(dt)
-	if not CurrentOwner and Ball.AssemblyLinearVelocity.Magnitude > 0.1 and Ball.AssemblyLinearVelocity.Magnitude < 10 then
+	if not CurrentOwner and Ball.AssemblyLinearVelocity.Magnitude > 0.1 then
 		Ball.AssemblyLinearVelocity *= DAMPING
 	end
 
@@ -200,6 +263,17 @@ RunService.Heartbeat:Connect(function(dt)
 		local Humanoid = Character:FindFirstChildOfClass("Humanoid")
 		if not Humanoid or Humanoid.Health <= 0 then
 			DetachBall()
+			return
+		end
+
+		-- Update ball spin based on player speed
+		if BallSpinner then
+			local RootPart = Character:FindFirstChild("HumanoidRootPart")
+			if RootPart then
+				local Speed = RootPart.AssemblyLinearVelocity.Magnitude
+				-- Scale spin with speed (0 when standing, faster when running)
+				BallSpinner.AngularVelocity = Speed * 2
+			end
 		end
 	end
 end)
