@@ -7,9 +7,9 @@ local Services = {
 
 local Settings = {
 	Ground_Kick_Max = 50,
-	Air_Kick_Max = 90,
+	Air_Kick_Max = 80,
 	Ground_Kick_Height = 15,
-	Air_Kick_Height = 70,
+	Air_Kick_Height = 60,
 	Possession_Timeout = 0.5,
 	Touch_Cooldown = 0.5
 }
@@ -193,13 +193,18 @@ KickBall.OnServerEvent:Connect(function(Player, KickType, Power, Direction)
 	end
 
 	local Root = Player.Character:FindFirstChild("HumanoidRootPart")
-	if not Root then
+	local Humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
+	if not Root or not Humanoid then
 		DetachBall()
 		return
 	end
 
 	-- Validate power (0-1)
 	Power = math.clamp(Power or 1, 0, 1)
+
+	-- Apply logarithmic power curve for diminishing returns
+	-- Light taps have good power, holding gives more but with exponential decay
+	local PowerCurve = math.sqrt(Power)
 
 	-- Validate direction
 	if not Direction or Direction.Magnitude < 0.1 then
@@ -208,12 +213,33 @@ KickBall.OnServerEvent:Connect(function(Player, KickType, Power, Direction)
 		Direction = Direction.Unit
 	end
 
+	-- Stop the player and play animation
+	local OriginalWalkSpeed = Humanoid.WalkSpeed
+	Humanoid.WalkSpeed = 0
+	Root.Anchored = true
+
+	-- Load and play kick animation
+	local KickAnimationId = "rbxassetid://13755924377"
+	local Animator = Humanoid:FindFirstChildOfClass("Animator")
+	if not Animator then
+		Animator = Instance.new("Animator")
+		Animator.Parent = Humanoid
+	end
+
+	local KickAnimation = Instance.new("Animation")
+	KickAnimation.AnimationId = KickAnimationId
+	local AnimTrack = Animator:LoadAnimation(KickAnimation)
+	AnimTrack:Play()
+
+	-- Wait for animation kick moment (adjust timing as needed)
+	--task.wait(0.5)
+
 	DetachBall()
 
 	local MaxPower = KickType == "Ground" and Settings.Ground_Kick_Max or Settings.Air_Kick_Max
 	local MaxHeight = KickType == "Ground" and Settings.Ground_Kick_Height or Settings.Air_Kick_Height
-	local Force = MaxPower * Power * 2
-	local Height = MaxHeight * Power
+	local Force = MaxPower * PowerCurve * 2
+	local Height = MaxHeight * PowerCurve
 
 	-- Apply velocity
 	local Velocity = Instance.new("BodyVelocity")
@@ -228,19 +254,13 @@ KickBall.OnServerEvent:Connect(function(Player, KickType, Power, Direction)
 
 	Services.Debris:AddItem(Velocity, 0.2)
 
-	---- Apply angular velocity (spin)
-	--local AngularVelocity = Instance.new("BodyAngularVelocity")
-	--AngularVelocity.Parent = Ball
-	--AngularVelocity.MaxTorque = Vector3.new(1, 1, 1) * math.huge
-	--
-	---- Spin perpendicular to kick direction for realistic ball spin
-	--local SpinAxis = Direction:Cross(Vector3.new(0, 1, 0)).Unit
-	--local SpinSpeed = Force * 0.5 -- Spin speed scales with kick power
-	--AngularVelocity.AngularVelocity = SpinAxis * SpinSpeed
-	--
-	--Services.Debris:AddItem(AngularVelocity, 0.3)
-
 	KickSound:Play()
+
+	-- Restore player movement after animation
+	task.wait(0.5)
+	Root.Anchored = false
+	Humanoid.WalkSpeed = OriginalWalkSpeed
+	AnimTrack:Stop()
 end)
 
 -- Damping
