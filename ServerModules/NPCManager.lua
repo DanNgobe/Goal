@@ -37,9 +37,6 @@ function NPCManager.Initialize(groundPart, formationModule)
 	FieldCenter = Ground.Position
 	FieldSize = Ground.Size
 	
-	print(string.format("[NPCManager] Initialized - Field Size: %.1f x %.1f, Center: %s", 
-		FieldSize.X, FieldSize.Z, tostring(FieldCenter)))
-	
 	return true
 end
 
@@ -124,8 +121,6 @@ function NPCManager.SpawnNPC(npcTemplate, teamName, role, worldPosition)
 	}
 	table.insert(SpawnedNPCs, npcData)
 	
-	print(string.format("[NPCManager] Spawned %s at %s", npc.Name, tostring(worldPosition)))
-	
 	return npcData
 end
 
@@ -149,8 +144,6 @@ function NPCManager.SpawnTeamNPCs(teamName)
 	local formation = FormationData.GetFormation()
 	local teamNPCs = {}
 	
-	print(string.format("[NPCManager] Spawning %s team with %d players...", teamName, #formation))
-	
 	-- Spawn each position
 	for _, positionData in ipairs(formation) do
 		local worldPos = NPCManager.CalculateWorldPosition(teamName, positionData.Position)
@@ -160,8 +153,6 @@ function NPCManager.SpawnTeamNPCs(teamName)
 			table.insert(teamNPCs, npcData)
 		end
 	end
-	
-	print(string.format("[NPCManager] Successfully spawned %d NPCs for %s team", #teamNPCs, teamName))
 	
 	return teamNPCs
 end

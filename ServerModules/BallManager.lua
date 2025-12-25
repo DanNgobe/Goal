@@ -82,7 +82,6 @@ function BallManager.Initialize(ballPart)
 	BallManager._SetupHeartbeat()
 	BallManager._SetupPlayerCleanup()
 	
-	print("[BallManager] Initialized successfully")
 	return true
 end
 
