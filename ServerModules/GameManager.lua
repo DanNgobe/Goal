@@ -77,6 +77,18 @@ function GameManager.Initialize()
 		return false
 	end
 	
+	-- Step 9: Initialize AIController
+	local aiSuccess = Managers.AIController.Initialize(
+		Managers.TeamManager,
+		Managers.NPCManager,
+		Managers.BallManager,
+		Managers.FormationData
+	)
+	if not aiSuccess then
+		warn("[GameManager] Failed to initialize AIController!")
+		return false
+	end
+	
 	print(string.format("[GameManager] Spawned %d Blue + %d Red NPCs", #blueNPCs, #redNPCs))
 	
 	CurrentState = GameState.Playing
@@ -135,7 +147,8 @@ function GameManager._LoadManagers()
 		"FormationData",
 		"NPCManager",
 		"TeamManager",
-		"BallManager"
+		"BallManager",
+		"AIController"
 	}
 	
 	for _, managerName in ipairs(managersToLoad) do
@@ -226,6 +239,9 @@ end
 
 -- Cleanup (for testing)
 function GameManager.Cleanup()
+	if Managers.AIController then
+		Managers.AIController.Cleanup()
+	end
 	if Managers.BallManager then
 		Managers.BallManager.Cleanup()
 	end

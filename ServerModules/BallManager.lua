@@ -346,10 +346,10 @@ function BallManager._SetupTouchDetection()
 			return
 		end
 		
-		-- Check if touched by foot
-		if not (part.Name == "LeftFoot" or part.Name == "RightFoot") then
-			return
-		end
+		-- -- Check if touched by foot
+		-- if not (part.Name == "LeftFoot" or part.Name == "RightFoot") then
+		-- 	return
+		-- end
 		
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		if not humanoid or humanoid.Health <= 0 then

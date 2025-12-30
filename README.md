@@ -147,14 +147,17 @@ When not controlled by players:
 - Camera, input, and NPC control
 - Test: Players can join and control NPCs
 
-### **BATCH 5: Basic AI Behavior**
-- AIController.lua - Basic AI
-- Return to position behavior
-- Test: AI NPCs walk to positions
+### **BATCH 5: Basic AI Behavior** ✅
+- AIController.lua - Dynamic formation system
+- Formation switching (Neutral/Attacking/Defensive)
+- NPCs move to formation positions based on possession
+- Test: NPCs shift formations when ball changes hands
 
-### **BATCH 6: Advanced AI (Passing & Shooting)**
-- Expand AIController.lua
-- Pass and shoot logic
+### **BATCH 6: Advanced AI (Passing & Shooting)** ✅
+- Expand AIController.lua with tactical decision making
+- Shooting logic - NPCs shoot when in range and facing goal
+- Passing logic - NPCs pass to teammates ahead
+- Dribbling logic - NPCs move toward goal with ball
 - Test: NPCs play soccer tactically
 
 ### **BATCH 7: Goal Detection & Scoring**

@@ -57,7 +57,8 @@ end
 -- Calculate world position for a team side
 -- teamSide: "Blue" or "Red"
 -- formationPosition: Vector3 with percentage values (0 to 1)
-function NPCManager.CalculateWorldPosition(teamSide, formationPosition)
+-- formationType: Optional - "Neutral", "Attacking", or "Defensive" (defaults to current/stored formation)
+function NPCManager.CalculateWorldPosition(teamSide, formationPosition, formationType)
 	if not FieldCenter or not FieldSize then
 		warn("[NPCManager] Field not initialized!")
 		return Vector3.new(0, 10, 0)
@@ -79,6 +80,28 @@ function NPCManager.CalculateWorldPosition(teamSide, formationPosition)
 	local worldZ = FieldCenter.Z + (scaledZ * sideMultiplier)
 	
 	return Vector3.new(worldX, worldY, worldZ)
+end
+
+-- Recalculate positions for a team with a specific formation
+-- Returns array of {Role, WorldPosition} for each position
+function NPCManager.RecalculateTeamPositions(teamName, formationType)
+	if not FormationData then
+		warn("[NPCManager] FormationData not initialized!")
+		return {}
+	end
+	
+	local formation = FormationData.GetFormationByName(formationType)
+	local positions = {}
+	
+	for _, positionData in ipairs(formation) do
+		local worldPos = NPCManager.CalculateWorldPosition(teamName, positionData.Position)
+		table.insert(positions, {
+			Role = positionData.Role,
+			WorldPosition = worldPos
+		})
+	end
+	
+	return positions
 end
 
 -- Spawn a single NPC
