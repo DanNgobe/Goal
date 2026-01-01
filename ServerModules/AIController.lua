@@ -20,6 +20,7 @@ local TeamManager = nil
 local NPCManager = nil
 local BallManager = nil
 local FormationData = nil
+local GoalManager = nil
 
 -- State
 local State = {
@@ -66,8 +67,8 @@ local Config = {
 	FormationWeight = {
 		Chaser = 0.0,  -- 100% ball focus
 		Support = 0.5,  -- 50/50 between formation and ball
-		Formation = 0.65,  -- 85% formation, 15% ball awareness
-		Defensive = 0.80  -- 90% formation when defending
+		Formation = 0.5,  -- 85% formation, 15% ball awareness
+		Defensive = 0.5  -- 90% formation when defending
 	},
 
 	-- Tactical
@@ -87,11 +88,12 @@ local UpdateConnection = nil
 -- INITIALIZATION
 --------------------------------------------------------------------------------
 
-function AIController.Initialize(teamManager, npcManager, ballManager, formationData)
+function AIController.Initialize(teamManager, npcManager, ballManager, formationData, goalManager)
 	TeamManager = teamManager
 	NPCManager = npcManager
 	BallManager = ballManager
 	FormationData = formationData
+	GoalManager = goalManager
 
 	if not TeamManager or not NPCManager or not BallManager or not FormationData then
 		warn("[AIController] Missing required managers!")
@@ -145,8 +147,6 @@ function SetFormation(teamName, formationType)
 
 	State.Formations[teamName] = formationType
 	UpdateTeamHomePositions(teamName)
-
-	print(string.format("[AIController] %s → %s formation", teamName, formationType))
 end
 
 function SetBothFormations(formationType)
@@ -195,8 +195,24 @@ function StartUpdateLoop()
 end
 
 function UpdateAllAI()
+	-- Check if we're in kickoff mode or processing a goal
+	local isKickoff = GoalManager and GoalManager.IsInKickoff()
+	local isProcessingGoal = GoalManager and GoalManager.IsProcessingGoal()
+	local kickoffTeam = GoalManager and GoalManager.GetKickoffTeam()
+
+	-- Don't update AI during goal intermission
+	if isProcessingGoal then
+		return
+	end
+
 	-- Update each team
 	for _, teamName in ipairs({"Blue", "Red"}) do
+		-- Skip AI updates for frozen team during kickoff
+		if isKickoff and teamName ~= kickoffTeam then
+			-- This team is frozen, skip AI
+			continue
+		end
+
 		local slots = TeamManager.GetAISlots(teamName)
 		for _, slot in ipairs(slots) do
 			UpdateNPC(slot, teamName)

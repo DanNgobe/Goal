@@ -42,14 +42,14 @@ local PlayerAssignments = {}  -- [Player] = {Team = "Blue"/"Red", SlotIndex = nu
 function TeamManager.Initialize(blueGoal, redGoal)
 	Teams.Blue.GoalPart = blueGoal
 	Teams.Red.GoalPart = redGoal
-	
+
 	if not blueGoal then
 		warn("[TeamManager] Blue goal not found!")
 	end
 	if not redGoal then
 		warn("[TeamManager] Red goal not found!")
 	end
-	
+
 	return true
 end
 
@@ -59,10 +59,10 @@ function TeamManager.SetupTeamSlots(teamName, npcDataList)
 		warn(string.format("[TeamManager] Invalid team: %s", teamName))
 		return false
 	end
-	
+
 	local team = Teams[teamName]
 	team.Slots = {}
-	
+
 	for i, npcData in ipairs(npcDataList) do
 		local slot = {
 			Index = i,
@@ -74,7 +74,7 @@ function TeamManager.SetupTeamSlots(teamName, npcDataList)
 		}
 		table.insert(team.Slots, slot)
 	end
-	
+
 	return true
 end
 
@@ -112,7 +112,7 @@ end
 function TeamManager.GetSlotByRole(teamName, role)
 	local team = Teams[teamName]
 	if not team then return nil end
-	
+
 	for _, slot in ipairs(team.Slots) do
 		if slot.Role == role then
 			return slot
@@ -131,7 +131,7 @@ end
 function TeamManager.GetAISlots(teamName)
 	local team = Teams[teamName]
 	if not team then return {} end
-	
+
 	local aiSlots = {}
 	for _, slot in ipairs(team.Slots) do
 		if slot.IsAI and not slot.Controller then
@@ -145,7 +145,7 @@ end
 function TeamManager.GetPlayerSlots(teamName)
 	local team = Teams[teamName]
 	if not team then return {} end
-	
+
 	local playerSlots = {}
 	for _, slot in ipairs(team.Slots) do
 		if not slot.IsAI and slot.Controller then
@@ -179,7 +179,7 @@ function TeamManager.AssignPlayerToTeam(player)
 	-- Count players on each team
 	local blueCount = 0
 	local redCount = 0
-	
+
 	for _, assignment in pairs(PlayerAssignments) do
 		if assignment.Team == "Blue" then
 			blueCount = blueCount + 1
@@ -187,11 +187,11 @@ function TeamManager.AssignPlayerToTeam(player)
 			redCount = redCount + 1
 		end
 	end
-	
+
 	-- Assign to team with fewer players
 	local teamName = (blueCount <= redCount) and "Blue" or "Red"
 	local team = Teams[teamName]
-	
+
 	-- Find first available slot (AI-controlled)
 	local availableSlot = nil
 	for i, slot in ipairs(team.Slots) do
@@ -200,25 +200,25 @@ function TeamManager.AssignPlayerToTeam(player)
 			break
 		end
 	end
-	
+
 	if not availableSlot then
 		warn(string.format("[TeamManager] No available slots on %s team", teamName))
 		return nil, nil
 	end
-	
+
 	-- Assign player to slot
 	local slot = team.Slots[availableSlot]
 	slot.Controller = player
 	slot.IsAI = false
-	
+
 	PlayerAssignments[player] = {
 		Team = teamName,
 		SlotIndex = availableSlot
 	}
-	
+
 	print(string.format("[TeamManager] Assigned %s to %s team, slot %d (%s)", 
 		player.Name, teamName, availableSlot, slot.Role))
-	
+
 	return teamName, availableSlot
 end
 
@@ -228,7 +228,7 @@ function TeamManager.RemovePlayer(player)
 	if not assignment then
 		return false
 	end
-	
+
 	local team = Teams[assignment.Team]
 	if team then
 		local slot = team.Slots[assignment.SlotIndex]
@@ -238,7 +238,7 @@ function TeamManager.RemovePlayer(player)
 			print(string.format("[TeamManager] Removed %s from %s team", player.Name, assignment.Team))
 		end
 	end
-	
+
 	PlayerAssignments[player] = nil
 	return true
 end
@@ -250,36 +250,36 @@ function TeamManager.SwitchPlayerSlot(player, newSlotIndex)
 		warn("[TeamManager] Player not assigned to any team")
 		return false
 	end
-	
+
 	local team = Teams[assignment.Team]
 	local oldSlot = team.Slots[assignment.SlotIndex]
 	local newSlot = team.Slots[newSlotIndex]
-	
+
 	if not newSlot then
 		warn("[TeamManager] Invalid slot index")
 		return false
 	end
-	
+
 	-- Check if new slot is available
 	if not newSlot.IsAI or newSlot.Controller then
 		warn("[TeamManager] Target slot is not available")
 		return false
 	end
-	
+
 	-- Release old slot
 	oldSlot.Controller = nil
 	oldSlot.IsAI = true
-	
+
 	-- Take new slot
 	newSlot.Controller = player
 	newSlot.IsAI = false
-	
+
 	-- Update assignment
 	assignment.SlotIndex = newSlotIndex
-	
+
 	print(string.format("[TeamManager] Switched %s from %s to %s", 
 		player.Name, oldSlot.Role, newSlot.Role))
-	
+
 	return true
 end
 
@@ -287,10 +287,10 @@ end
 function TeamManager.FindClosestSlot(teamName, position)
 	local team = Teams[teamName]
 	if not team then return nil end
-	
+
 	local closestSlot = nil
 	local closestDistance = math.huge
-	
+
 	for _, slot in ipairs(team.Slots) do
 		if slot.IsAI and not slot.Controller then
 			local distance = (slot.HomePosition - position).Magnitude
@@ -300,7 +300,7 @@ function TeamManager.FindClosestSlot(teamName, position)
 			end
 		end
 	end
-	
+
 	return closestSlot
 end
 
@@ -308,10 +308,10 @@ end
 function TeamManager.AddScore(teamName, points)
 	local team = Teams[teamName]
 	if not team then return false end
-	
+
 	team.Score = team.Score + (points or 1)
 	print(string.format("[TeamManager] %s team score: %d", teamName, team.Score))
-	
+
 	return true
 end
 
@@ -326,6 +326,27 @@ function TeamManager.ResetScores()
 	Teams.Blue.Score = 0
 	Teams.Red.Score = 0
 	print("[TeamManager] Scores reset")
+end
+
+-- Reset all players and NPCs to their home positions
+function TeamManager.ResetAllPositions()
+	for _, teamName in ipairs({"Blue", "Red"}) do
+		local slots = TeamManager.GetTeamSlots(teamName)
+		for _, slot in ipairs(slots) do
+			if slot.NPC and slot.NPC.Parent and slot.HomePosition then
+				local root = slot.NPC:FindFirstChild("HumanoidRootPart")
+				local humanoid = slot.NPC:FindFirstChildOfClass("Humanoid")
+				if root and humanoid then
+					-- Teleport to home position
+					root.CFrame = CFrame.new(slot.HomePosition)
+					root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+					root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+					humanoid:MoveTo(slot.HomePosition)
+				end
+			end
+		end
+	end
+	print("[TeamManager] Reset all positions")
 end
 
 -- Get all players on a team

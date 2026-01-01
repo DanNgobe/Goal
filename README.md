@@ -160,10 +160,12 @@ When not controlled by players:
 - Dribbling logic - NPCs move toward goal with ball
 - Test: NPCs play soccer tactically
 
-### **BATCH 7: Goal Detection & Scoring**
-- GoalManager.lua
-- UIController.lua (client)
-- Test: Complete game loop
+### **BATCH 7: Goal Detection & Scoring** ✅
+- GoalManager.lua - Goal detection and scoring system
+- UIController.lua (client) - Scoreboard and intermission UI
+- Intermission system between goals
+- Real-time score tracking and display
+- Test: Complete game loop with scoring
 
 ---
 

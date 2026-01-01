@@ -27,16 +27,16 @@ local SpawnedNPCs = {}
 function NPCManager.Initialize(groundPart, formationModule)
 	Ground = groundPart
 	FormationData = formationModule
-	
+
 	if not Ground then
 		warn("[NPCManager] Ground part not found!")
 		return false
 	end
-	
+
 	-- Calculate field properties
 	FieldCenter = Ground.Position
 	FieldSize = Ground.Size
-	
+
 	return true
 end
 
@@ -63,22 +63,22 @@ function NPCManager.CalculateWorldPosition(teamSide, formationPosition, formatio
 		warn("[NPCManager] Field not initialized!")
 		return Vector3.new(0, 10, 0)
 	end
-	
+
 	-- Determine which side of field this team is on
 	-- Blue team: Negative Z (left side when looking from above)
 	-- Red team: Positive Z (right side when looking from above)
 	local sideMultiplier = (teamSide == "Blue") and -1 or 1
-	
+
 	-- Scale formation positions by field size
 	-- Multiply percentage by field dimensions
 	local scaledX = formationPosition.X * FieldSize.X
 	local scaledZ = formationPosition.Z * FieldSize.Z
-	
+
 	-- Calculate world position
 	local worldX = FieldCenter.X + scaledX
 	local worldY = FieldCenter.Y + 3  -- Spawn slightly above ground
 	local worldZ = FieldCenter.Z + (scaledZ * sideMultiplier)
-	
+
 	return Vector3.new(worldX, worldY, worldZ)
 end
 
@@ -89,10 +89,10 @@ function NPCManager.RecalculateTeamPositions(teamName, formationType)
 		warn("[NPCManager] FormationData not initialized!")
 		return {}
 	end
-	
+
 	local formation = FormationData.GetFormationByName(formationType)
 	local positions = {}
-	
+
 	for _, positionData in ipairs(formation) do
 		local worldPos = NPCManager.CalculateWorldPosition(teamName, positionData.Position)
 		table.insert(positions, {
@@ -100,7 +100,7 @@ function NPCManager.RecalculateTeamPositions(teamName, formationType)
 			WorldPosition = worldPos
 		})
 	end
-	
+
 	return positions
 end
 
@@ -114,26 +114,37 @@ function NPCManager.SpawnNPC(npcTemplate, teamName, role, worldPosition)
 		warn("[NPCManager] NPC template is nil!")
 		return nil
 	end
-	
+
 	-- Clone the NPC
 	local npc = npcTemplate:Clone()
 	npc.Name = teamName .. "_" .. role
-	
+
 	-- Set up the NPC
 	local humanoid = npc:FindFirstChildOfClass("Humanoid")
 	if humanoid then
 		humanoid.DisplayName = teamName .. " " .. role
 	end
-	
+
 	-- Position the NPC
 	local rootPart = npc:FindFirstChild("HumanoidRootPart")
 	if rootPart then
 		npc:SetPrimaryPartCFrame(CFrame.new(worldPosition))
 	end
-	
+
 	-- Parent to workspace
 	npc.Parent = workspace
-	
+
+	-- Set collision group for NPCs
+	task.defer(function()
+		for _, part in ipairs(npc:GetDescendants()) do
+			if part:IsA("BasePart") then
+				pcall(function()
+					part.CollisionGroup = "NPCs"
+				end)
+			end
+		end
+	end)
+
 	-- Store reference
 	local npcData = {
 		Model = npc,
@@ -143,7 +154,7 @@ function NPCManager.SpawnNPC(npcTemplate, teamName, role, worldPosition)
 		IsAI = true  -- Default to AI controlled
 	}
 	table.insert(SpawnedNPCs, npcData)
-	
+
 	return npcData
 end
 
@@ -156,27 +167,27 @@ function NPCManager.SpawnTeamNPCs(teamName)
 		warn("[NPCManager] NPCs folder not found in ServerStorage!")
 		return {}
 	end
-	
+
 	local npcTemplate = npcFolder:FindFirstChild(teamName)
 	if not npcTemplate then
 		warn(string.format("[NPCManager] %s NPC template not found!", teamName))
 		return {}
 	end
-	
+
 	-- Get formation data
 	local formation = FormationData.GetFormation()
 	local teamNPCs = {}
-	
+
 	-- Spawn each position
 	for _, positionData in ipairs(formation) do
 		local worldPos = NPCManager.CalculateWorldPosition(teamName, positionData.Position)
 		local npcData = NPCManager.SpawnNPC(npcTemplate, teamName, positionData.Role, worldPos)
-		
+
 		if npcData then
 			table.insert(teamNPCs, npcData)
 		end
 	end
-	
+
 	return teamNPCs
 end
 
@@ -186,9 +197,23 @@ function NPCManager.PositionNPC(npcModel, worldPosition)
 		warn("[NPCManager] Invalid NPC model for positioning")
 		return false
 	end
-	
+
 	npcModel:SetPrimaryPartCFrame(CFrame.new(worldPosition))
 	return true
+end
+
+-- Reset all NPCs to their home positions
+function NPCManager.ResetAllPositions()
+	for _, npcData in ipairs(SpawnedNPCs) do
+		if npcData.Model and npcData.Model.Parent and npcData.HomePosition then
+			local humanoid = npcData.Model:FindFirstChildOfClass("Humanoid")
+			if humanoid then
+				humanoid:MoveTo(npcData.HomePosition)
+				NPCManager.PositionNPC(npcData.Model, npcData.HomePosition)
+			end
+		end
+	end
+	print("[NPCManager] Reset all NPCs to home positions")
 end
 
 -- Get all spawned NPCs
@@ -220,19 +245,19 @@ end
 -- Respawn an NPC if destroyed
 function NPCManager.RespawnNPC(npcData)
 	if not npcData then return nil end
-	
+
 	-- Get template
 	local npcFolder = ServerStorage:FindFirstChild("NPCs")
 	if not npcFolder then return nil end
-	
+
 	local template = npcFolder:FindFirstChild(npcData.TeamName)
 	if not template then return nil end
-	
+
 	-- Remove old NPC if it exists
 	if npcData.Model and npcData.Model.Parent then
 		npcData.Model:Destroy()
 	end
-	
+
 	-- Spawn new NPC at home position
 	local newNPC = NPCManager.SpawnNPC(
 		template,
@@ -240,13 +265,13 @@ function NPCManager.RespawnNPC(npcData)
 		npcData.Role,
 		npcData.HomePosition
 	)
-	
+
 	-- Update reference
 	if newNPC then
 		npcData.Model = newNPC.Model
 		print(string.format("[NPCManager] Respawned %s_%s", npcData.TeamName, npcData.Role))
 	end
-	
+
 	return newNPC
 end
 

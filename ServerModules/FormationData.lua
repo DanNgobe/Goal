@@ -1,16 +1,23 @@
 --[[
 	FormationData.lua
-	Defines the 6v6 formation layouts with multiple tactical formations.
+	Defines the formation layouts with multiple tactical formations.
+	Supports both 4v4 and 6v6 game modes.
 	
 	Formations:
 	- NEUTRAL: Default formation, everyone in own half (used at kickoff and when no possession)
 	- ATTACKING: Pushed forward (used when team has ball)
 	- DEFENSIVE: Deep and compact (used when opponent has ball)
 	
-	Formation Layout (6v6):
+	6v6 Formation Layout:
 	                    [GOAL]
 	                      GK
 	          		LB        RB
+	          LW                    RW
+	                     ST
+	
+	4v4 Formation Layout (excludes both defenders):
+	                    [GOAL]
+	                      GK
 	          LW                    RW
 	                     ST
 	
@@ -20,6 +27,37 @@
 ]]
 
 local FormationData = {}
+
+-- Configuration
+local Config = {
+	TeamSize = 6  -- Set to 4 for 4v4, or 6 for 6v6
+}
+
+-- Roles to exclude for 4v4 (excludes both defenders)
+local EXCLUDED_4V4_ROLES = {
+	"LB",  -- Left back removed
+	"RB"   -- Right back removed
+}
+
+-- 4v4 Position Adjustments (compensate for missing defenders)
+-- These override the 6v6 positions when in 4v4 mode
+local ADJUSTMENTS_4V4 = {
+	LW = Vector3.new(-0.15, 0, -0.25),  -- Move back and more central
+	RW = Vector3.new(0.15, 0, -0.25),   -- Move back and more central
+	ST = Vector3.new(0, 0, -0.1)        -- Drop back slightly
+}
+
+local ADJUSTMENTS_4V4_ATTACKING = {
+	LW = Vector3.new(-0.2, 0, 0.05),    -- Still wide but not as far forward
+	RW = Vector3.new(0.2, 0, 0.05),     -- Still wide but not as far forward
+	ST = Vector3.new(0, 0, 0.25)        -- Still high but not as far
+}
+
+local ADJUSTMENTS_4V4_DEFENSIVE = {
+	LW = Vector3.new(-0.12, 0, -0.28),  -- Very deep and narrow
+	RW = Vector3.new(0.12, 0, -0.28),   -- Very deep and narrow
+	ST = Vector3.new(0, 0, -0.18)       -- Drop very deep
+}
 
 -- 6v6 NEUTRAL Formation (Default - Everyone in own half)
 -- Used at kickoff and when no team has clear possession
@@ -151,38 +189,108 @@ local FormationType = {
 	Defensive = "Defensive"
 }
 
+-- Helper: Filter formation based on team size
+local function FilterFormationByTeamSize(formation, formationType)
+	if Config.TeamSize == 6 then
+		return formation  -- Return full 6v6 formation
+	elseif Config.TeamSize == 4 then
+		-- Get appropriate adjustments based on formation type
+		local adjustments
+		if formationType == FormationType.Attacking then
+			adjustments = ADJUSTMENTS_4V4_ATTACKING
+		elseif formationType == FormationType.Defensive then
+			adjustments = ADJUSTMENTS_4V4_DEFENSIVE
+		else
+			adjustments = ADJUSTMENTS_4V4
+		end
+
+		-- Filter out excluded roles and apply position adjustments
+		local filtered = {}
+		for _, positionData in ipairs(formation) do
+			local isExcluded = false
+			for _, excludedRole in ipairs(EXCLUDED_4V4_ROLES) do
+				if positionData.Role == excludedRole then
+					isExcluded = true
+					break
+				end
+			end
+
+			if not isExcluded then
+				-- Apply position adjustment if exists
+				local adjusted = {
+					Role = positionData.Role,
+					Name = positionData.Name,
+					ShortName = positionData.ShortName,
+					Position = adjustments[positionData.Role] or positionData.Position
+				}
+				table.insert(filtered, adjusted)
+			end
+		end
+		return filtered
+	else
+		warn("[FormationData] Invalid TeamSize: " .. tostring(Config.TeamSize))
+		return formation
+	end
+end
+
 -- Get the current formation (defaults to Neutral)
 function FormationData.GetFormation(formationType)
 	formationType = formationType or FormationType.Neutral
 
+	local baseFormation
 	if formationType == FormationType.Attacking then
-		return ATTACKING_FORMATION
+		baseFormation = ATTACKING_FORMATION
 	elseif formationType == FormationType.Defensive then
-		return DEFENSIVE_FORMATION
+		baseFormation = DEFENSIVE_FORMATION
 	else
-		return NEUTRAL_FORMATION
+		baseFormation = NEUTRAL_FORMATION
 	end
+
+	return FilterFormationByTeamSize(baseFormation, formationType)
 end
 
 -- Get formation by name (string)
 function FormationData.GetFormationByName(name)
+	local baseFormation
+	local formationType
 	if name == "Attacking" then
-		return ATTACKING_FORMATION
+		baseFormation = ATTACKING_FORMATION
+		formationType = FormationType.Attacking
 	elseif name == "Defensive" then
-		return DEFENSIVE_FORMATION
+		baseFormation = DEFENSIVE_FORMATION
+		formationType = FormationType.Defensive
 	else
-		return NEUTRAL_FORMATION
+		baseFormation = NEUTRAL_FORMATION
+		formationType = FormationType.Neutral
 	end
+
+	return FilterFormationByTeamSize(baseFormation, formationType)
 end
 
 -- Get the default (neutral) formation
 function FormationData.GetDefaultFormation()
-	return NEUTRAL_FORMATION
+	return FilterFormationByTeamSize(NEUTRAL_FORMATION, FormationType.Neutral)
 end
 
--- Get total number of players per team
+-- Get total number of players per team based on configuration
 function FormationData.GetPositionCount()
-	return #NEUTRAL_FORMATION  -- All formations have same count
+	return Config.TeamSize
+end
+
+-- Set team size (4 or 6)
+function FormationData.SetTeamSize(size)
+	if size ~= 4 and size ~= 6 then
+		warn("[FormationData] Invalid team size: " .. tostring(size) .. ". Must be 4 or 6.")
+		return false
+	end
+	Config.TeamSize = size
+	print(string.format("[FormationData] Team size set to %dv%d", size, size))
+	return true
+end
+
+-- Get current team size
+function FormationData.GetTeamSize()
+	return Config.TeamSize
 end
 
 -- Get a specific position by role from a formation
