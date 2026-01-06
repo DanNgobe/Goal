@@ -1,0 +1,23 @@
+Tackle -  rbxassetid://125557299989744
+Defeat Reaction -  rbxassetid://128827561762854
+Goalkeeper Jump Catch -  rbxassetid://119888679150732
+Goalkeeper Left Diving Save -  rbxassetid://134119711911427
+Goalkeeper Place And Kick -  rbxassetid://103229672981962
+Goalkeeper Right Diving Save -  rbxassetid://118774312513760
+Goalkeeper Scoop -  rbxassetid://90457004291903
+Goalkeeper Standing Catch -  rbxassetid://110067978291476
+Goalkeeper Trow -  rbxassetid://135849061306619
+Jump -  rbxassetid://127586004923181
+Offensive Idle -  rbxassetid://99972725424538
+Pass Left Kick -  rbxassetid://99205226261734
+Pass Right Kick -  rbxassetid://133927349049921
+Penalty Left Kick -  rbxassetid://99585716270614
+Penalty Right Kick -  rbxassetid://116121335607160
+Scissor Kick -  rbxassetid://74338726601668
+Soccer Header -  rbxassetid://94820443873245
+Soccer Tackle Reaction -  rbxassetid://81895517933113
+Spin -  rbxassetid://97707998406279
+Strike Left Kick -  rbxassetid://108579500601701
+Strike Right Kick -  rbxassetid://76069154190283
+Chest Receive Reaction -  rbxassetid://107892350986805
+Running -  rbxassetid://84576343092696

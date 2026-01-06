@@ -130,12 +130,12 @@ When not controlled by players:
 - NPCManager.lua - Position calculation & spawning
 - Test: Visualize positions on field
 
-### **BATCH 2: Ball System Refactor**
+### **BATCH 2: Ball System Refactor** ✅
 - Refactor BallServerScript.lua → BallManager.lua
 - Make ball system work with any character (player or NPC)
 - Test: Ball system still works for players
 
-### **BATCH 3: Team Management & NPC Spawning**
+### **BATCH 3: Team Management & NPC Spawning** ✅
 - TeamManager.lua - Team structure
 - GameManager.lua - Initialization orchestrator
 - Main.lua - Entry point

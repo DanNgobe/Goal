@@ -106,7 +106,7 @@ local function AttachBallToCharacter(character, rootPart)
 	-- Position ball in front of character at foot level
 	local offset = rootPart.CFrame.LookVector * 3.25
 	Ball.CFrame = CFrame.new(
-		Vector3.new(rootPart.Position.X, rootPart.Position.Y - 2, rootPart.Position.Z) + 
+		Vector3.new(rootPart.Position.X, rootPart.Position.Y - 5, rootPart.Position.Z) + 
 			Vector3.new(offset.X, 0, offset.Z)
 	)
 
@@ -293,7 +293,7 @@ function BallManager.KickBall(character, kickType, power, direction)
 	rootPart.Anchored = true
 
 	-- Load and play kick animation
-	local kickAnimationId = "rbxassetid://136755055161142" --13755924377"
+	local kickAnimationId = "rbxassetid://108579500601701" --13755924377"
 	local animator = humanoid:FindFirstChildOfClass("Animator")
 	if not animator then
 		animator = Instance.new("Animator")
@@ -302,7 +302,7 @@ function BallManager.KickBall(character, kickType, power, direction)
 
 	local kickAnimation = Instance.new("Animation")
 	kickAnimation.AnimationId = kickAnimationId
-	local animTrack = animator:LoadAnimation(kickAnimation)
+	local animTrack : AnimationTrack = animator:LoadAnimation(kickAnimation)
 	animTrack:Play()
 
 	-- Detach ball
@@ -313,7 +313,19 @@ function BallManager.KickBall(character, kickType, power, direction)
 	local maxHeight = kickType == "Ground" and Settings.Ground_Kick_Height or Settings.Air_Kick_Height
 	local force = maxPower * powerCurve * 2
 	local height = maxHeight * powerCurve
-
+	
+	-- Restore character movement after animation
+	task.spawn(function()
+		task.wait(animTrack.Length)
+		if rootPart and humanoid then
+			rootPart.Anchored = false
+			humanoid.WalkSpeed = originalWalkSpeed
+			animTrack:Stop()
+		end
+	end)
+	
+	task.wait(0.3)
+	
 	-- Apply velocity
 	local velocity = Instance.new("BodyVelocity")
 	velocity.Parent = Ball
@@ -325,16 +337,6 @@ function BallManager.KickBall(character, kickType, power, direction)
 	if KickSound then
 		KickSound:Play()
 	end
-
-	-- Restore character movement after animation
-	task.spawn(function()
-		task.wait(0.8)
-		if rootPart and humanoid then
-			rootPart.Anchored = false
-			humanoid.WalkSpeed = originalWalkSpeed
-			animTrack:Stop()
-		end
-	end)
 
 	return true
 end
@@ -353,7 +355,7 @@ function BallManager._SetupTouchDetection()
 		end
 
 		 -- Check if touched by foot or leg 
-		if not (string.lower(part.Name):find("foot") or string.lower(part.Name):find("leg")) then
+		if not (part.Name == "Shoes" or part.Name == "Socks") then
 		 return
 		end
 

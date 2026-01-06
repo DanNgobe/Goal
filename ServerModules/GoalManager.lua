@@ -175,7 +175,7 @@ function GoalManager._UnfreezeAllTeams()
 		for _, slot in ipairs(slots) do
 			if slot.NPC and slot.NPC.Parent then
 				local humanoid = slot.NPC:FindFirstChildOfClass("Humanoid")
-				if humanoid and slot.IsAI then
+				if humanoid then
 					humanoid.WalkSpeed = 16  -- Default AI speed
 				end
 			end

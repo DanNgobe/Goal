@@ -107,8 +107,19 @@ function GameManager.Initialize()
 
 	-- Step 11: Connect BallManager to GoalManager for kickoff handling
 	Managers.BallManager.SetGoalManager(Managers.GoalManager)
+	
+	-- Step 12: Initialize PlayerController
+	local playerSuccess = Managers.PlayerController.Initialize(
+		Managers.TeamManager,
+		Managers.NPCManager,
+		Managers.GoalManager
+	)
+	if not playerSuccess then
+		warn("[GameManager] Failed to initialize PlayerController!")
+		return false
+	end
 
-	-- Step 12: Initialize and start MatchTimer
+	-- Step 13: Initialize and start MatchTimer
 	local timerSuccess = Managers.MatchTimer.Initialize(GameManager, 300)  -- 5 minutes
 	if not timerSuccess then
 		warn("[GameManager] Failed to initialize MatchTimer!")
@@ -177,6 +188,7 @@ function GameManager._LoadManagers()
 		"BallManager",
 		"AIController",
 		"GoalManager",
+		"PlayerController",
 		"MatchTimer"
 	}
 

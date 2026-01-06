@@ -63,16 +63,16 @@ function UIController._CreateUI()
 	-- Scoreboard Frame (top center, smaller and scalable)
 	ScoreboardFrame = Instance.new("Frame")
 	ScoreboardFrame.Name = "Scoreboard"
-	ScoreboardFrame.Size = UDim2.new(0.25, 0, 0.08, 0)  -- Scale-based
-	ScoreboardFrame.Position = UDim2.new(0.375, 0, 0.02, 0)
-	ScoreboardFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+	ScoreboardFrame.Size = UDim2.new(0.3, 0, 0.1, 0)  -- Scale-based, slightly larger
+	ScoreboardFrame.Position = UDim2.new(0.35, 0, 0.02, 0)
+	ScoreboardFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
 	ScoreboardFrame.BackgroundTransparency = 0.15
 	ScoreboardFrame.BorderSizePixel = 0
 	ScoreboardFrame.Parent = ScreenGui
 
 	-- Scoreboard Corner
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0.2, 0)
+	corner.CornerRadius = UDim.new(0.15, 0)
 	corner.Parent = ScoreboardFrame
 
 	-- Add subtle gradient
@@ -84,29 +84,29 @@ function UIController._CreateUI()
 	gradient.Rotation = 90
 	gradient.Parent = ScoreboardFrame
 
-	-- Add border stroke
+	-- Add border stroke (whitish/gray like join panel)
 	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(255, 215, 0)
+	stroke.Color = Color3.fromRGB(180, 180, 180)
 	stroke.Thickness = 2
-	stroke.Transparency = 0.3
+	stroke.Transparency = 0.4
 	stroke.Parent = ScoreboardFrame
 
 	-- Timer Label (center, top of scoreboard)
 	TimerLabel = Instance.new("TextLabel")
 	TimerLabel.Name = "Timer"
-	TimerLabel.Size = UDim2.new(0.3, 0, 0.35, 0)
-	TimerLabel.Position = UDim2.new(0.35, 0, 0.05, 0)
-	TimerLabel.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+	TimerLabel.Size = UDim2.new(0.28, 0, 0.32, 0)
+	TimerLabel.Position = UDim2.new(0.36, 0, 0.08, 0)
+	TimerLabel.BackgroundColor3 = Color3.fromRGB(240, 240, 240)  -- Light gray/white
 	TimerLabel.BackgroundTransparency = 0
 	TimerLabel.BorderSizePixel = 0
 	TimerLabel.Font = Enum.Font.GothamBold
 	TimerLabel.TextScaled = true
-	TimerLabel.TextColor3 = Color3.fromRGB(15, 15, 25)
+	TimerLabel.TextColor3 = Color3.fromRGB(20, 20, 30)
 	TimerLabel.Text = "5:00"
 	TimerLabel.Parent = ScoreboardFrame
 
 	local timerCorner = Instance.new("UICorner")
-	timerCorner.CornerRadius = UDim.new(0.3, 0)
+	timerCorner.CornerRadius = UDim.new(0.25, 0)
 	timerCorner.Parent = TimerLabel
 
 	local timerPadding = Instance.new("UIPadding")
@@ -119,8 +119,8 @@ function UIController._CreateUI()
 	-- Blue Score Label
 	BlueScoreLabel = Instance.new("TextLabel")
 	BlueScoreLabel.Name = "BlueScore"
-	BlueScoreLabel.Size = UDim2.new(0.33, 0, 0.55, 0)
-	BlueScoreLabel.Position = UDim2.new(0.02, 0, 0.42, 0)
+	BlueScoreLabel.Size = UDim2.new(0.3, 0, 0.5, 0)
+	BlueScoreLabel.Position = UDim2.new(0.04, 0, 0.45, 0)
 	BlueScoreLabel.BackgroundColor3 = Color3.fromRGB(30, 130, 255)
 	BlueScoreLabel.BackgroundTransparency = 0.2
 	BlueScoreLabel.BorderSizePixel = 0
@@ -131,7 +131,7 @@ function UIController._CreateUI()
 	BlueScoreLabel.Parent = ScoreboardFrame
 
 	local blueCorner = Instance.new("UICorner")
-	blueCorner.CornerRadius = UDim.new(0.25, 0)
+	blueCorner.CornerRadius = UDim.new(0.2, 0)
 	blueCorner.Parent = BlueScoreLabel
 
 	local blueStroke = Instance.new("UIStroke")
@@ -149,12 +149,12 @@ function UIController._CreateUI()
 	-- VS Label
 	local vsLabel = Instance.new("TextLabel")
 	vsLabel.Name = "VS"
-	vsLabel.Size = UDim2.new(0.18, 0, 0.4, 0)
-	vsLabel.Position = UDim2.new(0.41, 0, 0.5, 0)
+	vsLabel.Size = UDim2.new(0.16, 0, 0.35, 0)
+	vsLabel.Position = UDim2.new(0.42, 0, 0.53, 0)
 	vsLabel.BackgroundTransparency = 1
 	vsLabel.Font = Enum.Font.GothamBold
 	vsLabel.TextScaled = true
-	vsLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+	vsLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
 	vsLabel.Text = "VS"
 	vsLabel.Parent = ScoreboardFrame
 
@@ -166,8 +166,8 @@ function UIController._CreateUI()
 	-- Red Score Label
 	RedScoreLabel = Instance.new("TextLabel")
 	RedScoreLabel.Name = "RedScore"
-	RedScoreLabel.Size = UDim2.new(0.33, 0, 0.55, 0)
-	RedScoreLabel.Position = UDim2.new(0.65, 0, 0.42, 0)
+	RedScoreLabel.Size = UDim2.new(0.3, 0, 0.5, 0)
+	RedScoreLabel.Position = UDim2.new(0.66, 0, 0.45, 0)
 	RedScoreLabel.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
 	RedScoreLabel.BackgroundTransparency = 0.2
 	RedScoreLabel.BorderSizePixel = 0
@@ -178,7 +178,7 @@ function UIController._CreateUI()
 	RedScoreLabel.Parent = ScoreboardFrame
 
 	local redCorner = Instance.new("UICorner")
-	redCorner.CornerRadius = UDim.new(0.25, 0)
+	redCorner.CornerRadius = UDim.new(0.2, 0)
 	redCorner.Parent = RedScoreLabel
 
 	local redStroke = Instance.new("UIStroke")
@@ -254,6 +254,107 @@ function UIController._CreateUI()
 	subStroke.Color = Color3.new(0, 0, 0)
 	subStroke.Thickness = 2
 	subStroke.Parent = SubText
+	
+	-- Team Join Panel (bottom center)
+	UIController._CreateTeamJoinPanel()
+end
+
+-- Private: Create team join panel
+function UIController._CreateTeamJoinPanel()
+	local JoinPanel = Instance.new("Frame")
+	JoinPanel.Name = "TeamJoinPanel"
+	JoinPanel.Size = UDim2.new(0.25, 0, 0.12, 0)
+	JoinPanel.Position = UDim2.new(0.375, 0, 0.85, 0)
+	JoinPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+	JoinPanel.BackgroundTransparency = 0.15
+	JoinPanel.BorderSizePixel = 0
+	JoinPanel.Parent = ScreenGui
+	
+	local joinCorner = Instance.new("UICorner")
+	joinCorner.CornerRadius = UDim.new(0.15, 0)
+	joinCorner.Parent = JoinPanel
+	
+	local joinStroke = Instance.new("UIStroke")
+	joinStroke.Color = Color3.fromRGB(150, 150, 150)
+	joinStroke.Thickness = 2
+	joinStroke.Transparency = 0.5
+	joinStroke.Parent = JoinPanel
+	
+	-- Title
+	local title = Instance.new("TextLabel")
+	title.Name = "Title"
+	title.Size = UDim2.new(0.9, 0, 0.25, 0)
+	title.Position = UDim2.new(0.05, 0, 0.05, 0)
+	title.BackgroundTransparency = 1
+	title.Font = Enum.Font.GothamBold
+	title.TextScaled = true
+	title.TextColor3 = Color3.fromRGB(255, 255, 255)
+	title.Text = "JOIN TEAM"
+	title.Parent = JoinPanel
+	
+	-- Blue Team Button
+	local blueButton = Instance.new("TextButton")
+	blueButton.Name = "BlueButton"
+	blueButton.Size = UDim2.new(0.42, 0, 0.55, 0)
+	blueButton.Position = UDim2.new(0.05, 0, 0.38, 0)
+	blueButton.BackgroundColor3 = Color3.fromRGB(30, 130, 255)
+	blueButton.BorderSizePixel = 0
+	blueButton.Font = Enum.Font.GothamBold
+	blueButton.TextScaled = true
+	blueButton.TextColor3 = Color3.new(1, 1, 1)
+	blueButton.Text = "BLUE"
+	blueButton.Parent = JoinPanel
+	
+	local blueButtonCorner = Instance.new("UICorner")
+	blueButtonCorner.CornerRadius = UDim.new(0.2, 0)
+	blueButtonCorner.Parent = blueButton
+	
+	local blueButtonStroke = Instance.new("UIStroke")
+	blueButtonStroke.Color = Color3.fromRGB(100, 180, 255)
+	blueButtonStroke.Thickness = 2
+	blueButtonStroke.Parent = blueButton
+	
+	-- Red Team Button
+	local redButton = Instance.new("TextButton")
+	redButton.Name = "RedButton"
+	redButton.Size = UDim2.new(0.42, 0, 0.55, 0)
+	redButton.Position = UDim2.new(0.53, 0, 0.38, 0)
+	redButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+	redButton.BorderSizePixel = 0
+	redButton.Font = Enum.Font.GothamBold
+	redButton.TextScaled = true
+	redButton.TextColor3 = Color3.new(1, 1, 1)
+	redButton.Text = "RED"
+	redButton.Parent = JoinPanel
+	
+	local redButtonCorner = Instance.new("UICorner")
+	redButtonCorner.CornerRadius = UDim.new(0.2, 0)
+	redButtonCorner.Parent = redButton
+	
+	local redButtonStroke = Instance.new("UIStroke")
+	redButtonStroke.Color = Color3.fromRGB(255, 130, 130)
+	redButtonStroke.Thickness = 2
+	redButtonStroke.Parent = redButton
+	
+	-- Button events
+	local playerRemotes = ReplicatedStorage:WaitForChild("PlayerRemotes")
+	local joinTeamRequest = playerRemotes:WaitForChild("JoinTeamRequest")
+	
+	blueButton.MouseButton1Click:Connect(function()
+		joinTeamRequest:FireServer("Blue")
+		JoinPanel.Visible = false
+	end)
+	
+	redButton.MouseButton1Click:Connect(function()
+		joinTeamRequest:FireServer("Red")
+		JoinPanel.Visible = false
+	end)
+	
+	-- Hide panel when player joins
+	local playerJoined = playerRemotes:WaitForChild("PlayerJoined")
+	playerJoined.OnClientEvent:Connect(function()
+		JoinPanel.Visible = false
+	end)
 end
 
 -- Private: Connect to goal scored events
@@ -294,7 +395,7 @@ function UIController._UpdateTimer(timeRemaining)
 	elseif timeRemaining <= 120 then
 		TimerLabel.BackgroundColor3 = Color3.fromRGB(255, 180, 0)  -- Orange for last 2 minutes
 	else
-		TimerLabel.BackgroundColor3 = Color3.fromRGB(255, 215, 0)  -- Gold
+		TimerLabel.BackgroundColor3 = Color3.fromRGB(240, 240, 240)  -- Light gray/white
 	end
 end
 

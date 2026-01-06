@@ -23,13 +23,19 @@ local UIController = require(ClientModules:WaitForChild("UIController"))
 -- Load BallControlClient
 local BallControlClient = require(ClientModules:WaitForChild("BallControlClient"))
 
+-- Load InputHandler
+local InputHandler = require(ClientModules:WaitForChild("InputHandler"))
+
 -- Initialize UI
 local uiSuccess = UIController.Initialize()
 
 -- Initialize Ball Control
 local ballSuccess = BallControlClient.Initialize()
 
-if uiSuccess and ballSuccess then
+-- Initialize Input Handler
+local inputSuccess = InputHandler.Initialize()
+
+if uiSuccess and ballSuccess and inputSuccess then
 	print("[ClientMain] ✓ Client ready")
 else
 	warn("[ClientMain] ✗ Client initialization failed!")

@@ -369,6 +369,38 @@ function TeamManager.GetTotalPlayerCount()
 	return count
 end
 
+-- Get team with fewer players (for auto-balance)
+function TeamManager.GetSmallerTeam()
+	local bluePlayerCount = 0
+	local redPlayerCount = 0
+	
+	-- Count non-AI slots for each team
+	local blueSlots = TeamManager.GetTeamSlots("Blue")
+	local redSlots = TeamManager.GetTeamSlots("Red")
+	
+	for _, slot in ipairs(blueSlots) do
+		if not slot.IsAI then
+			bluePlayerCount = bluePlayerCount + 1
+		end
+	end
+	
+	for _, slot in ipairs(redSlots) do
+		if not slot.IsAI then
+			redPlayerCount = redPlayerCount + 1
+		end
+	end
+	
+	-- Return team with fewer players
+	if bluePlayerCount < redPlayerCount then
+		return "Blue"
+	elseif redPlayerCount < bluePlayerCount then
+		return "Red"
+	else
+		-- Equal, return random
+		return math.random() > 0.5 and "Blue" or "Red"
+	end
+end
+
 -- Cleanup (for testing)
 function TeamManager.Cleanup()
 	PlayerAssignments = {}
