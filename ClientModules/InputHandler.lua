@@ -14,9 +14,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Private variables
 local IsProcessing = false
+local BallControlClient = nil
 
 -- Initialize
-function InputHandler.Initialize()
+function InputHandler.Initialize(ballControlClient)
+	-- Store reference to BallControlClient
+	BallControlClient = ballControlClient
+	
 	-- Connect to input
 	UserInputService.InputBegan:Connect(OnInputBegan)
 	
@@ -37,6 +41,12 @@ end
 -- Private: Request slot switch from server
 function RequestSlotSwitch()
 	if IsProcessing then return end
+	
+	-- Don't allow switching if player has the ball
+	if BallControlClient and BallControlClient.HasBall() then
+		print("[InputHandler] Cannot switch - you have the ball!")
+		return
+	end
 	
 	IsProcessing = true
 	

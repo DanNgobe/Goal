@@ -9,7 +9,7 @@
 -- ============================================
 -- GAME CONFIGURATION
 -- ============================================
-local TEAM_SIZE = 4  -- Set to 4 for 4v4, or 6 for 6v6
+local TEAM_SIZE = 5  -- Set to 5 for 5v5 mode
 
 -- Wait a moment for workspace to fully load
 task.wait(1)
@@ -17,6 +17,52 @@ task.wait(1)
 print("============================================")
 print(string.format("    %dv%d SOCCER GAME - INITIALIZING", TEAM_SIZE, TEAM_SIZE))
 print("============================================")
+
+-- ============================================
+-- SETUP COLLISION GROUPS
+-- ============================================
+local function SetupCollisionGroups()
+	local PhysicsService = game:GetService("PhysicsService")
+	
+	-- Register collision groups
+	pcall(function()
+		if not PhysicsService:IsCollisionGroupRegistered("Players") then
+			PhysicsService:RegisterCollisionGroup("Players")
+		end
+	end)
+	pcall(function()
+		if not PhysicsService:IsCollisionGroupRegistered("NPCs") then
+			PhysicsService:RegisterCollisionGroup("NPCs")
+		end
+	end)
+	pcall(function()
+		if not PhysicsService:IsCollisionGroupRegistered("Ball") then
+			PhysicsService:RegisterCollisionGroup("Ball")
+		end
+	end)
+	
+	-- Set collision rules
+	pcall(function()
+		-- Players and NPCs don't collide with each other
+		PhysicsService:CollisionGroupSetCollidable("Players", "Players", false)
+		PhysicsService:CollisionGroupSetCollidable("NPCs", "NPCs", false)
+		PhysicsService:CollisionGroupSetCollidable("Players", "NPCs", false)
+		
+		-- Ball doesn't collide with Players or NPCs
+		PhysicsService:CollisionGroupSetCollidable("Ball", "Players", false)
+		PhysicsService:CollisionGroupSetCollidable("Ball", "NPCs", false)
+		
+		-- All groups can collide with Default (ground, goals, walls, etc.)
+		PhysicsService:CollisionGroupSetCollidable("Players", "Default", true)
+		PhysicsService:CollisionGroupSetCollidable("NPCs", "Default", true)
+		PhysicsService:CollisionGroupSetCollidable("Ball", "Default", true)
+	end)
+	
+	print("[Main] ✓ Collision groups configured")
+end
+
+-- Setup collision groups before initializing game systems
+SetupCollisionGroups()
 
 -- Get the ServerModules folder
 local ServerModules = script.Parent:FindFirstChild("ServerModules")

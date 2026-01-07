@@ -26,16 +26,22 @@ local BallControlClient = require(ClientModules:WaitForChild("BallControlClient"
 -- Load InputHandler
 local InputHandler = require(ClientModules:WaitForChild("InputHandler"))
 
--- Initialize UI
-local uiSuccess = UIController.Initialize()
+-- Load CameraController
+local CameraController = require(ClientModules:WaitForChild("CameraController"))
+
+-- Initialize Camera Controller first
+local cameraSuccess = CameraController.Initialize()
+
+-- Initialize UI (pass CameraController reference)
+local uiSuccess = UIController.Initialize(CameraController)
 
 -- Initialize Ball Control
 local ballSuccess = BallControlClient.Initialize()
 
--- Initialize Input Handler
-local inputSuccess = InputHandler.Initialize()
+-- Initialize Input Handler (pass BallControlClient reference)
+local inputSuccess = InputHandler.Initialize(BallControlClient)
 
-if uiSuccess and ballSuccess and inputSuccess then
+if uiSuccess and ballSuccess and inputSuccess and cameraSuccess then
 	print("[ClientMain] ✓ Client ready")
 else
 	warn("[ClientMain] ✗ Client initialization failed!")

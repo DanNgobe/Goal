@@ -14,6 +14,7 @@ local TeamManager = {}
 
 -- Services
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Team data structure
 local Teams = {
@@ -38,10 +39,29 @@ local Teams = {
 -- Track player assignments
 local PlayerAssignments = {}  -- [Player] = {Team = "Blue"/"Red", SlotIndex = number}
 
+-- Dependencies
+local NPCManager = nil
+local FormationData = nil
+
+-- Game state
+local FrozenTeams = {}  -- Array of team names that are currently frozen
+local IsProcessingGoal = false
+
+-- Goal settings
+local GoalSettings = {
+	IntermissionTime = 5,  -- Seconds between goals
+}
+
+-- Remote Events
+local GoalRemoteFolder = nil
+local GoalScored = nil
+
 -- Initialize the Team Manager
-function TeamManager.Initialize(blueGoal, redGoal)
+function TeamManager.Initialize(blueGoal, redGoal, npcManager, formationData)
 	Teams.Blue.GoalPart = blueGoal
 	Teams.Red.GoalPart = redGoal
+	NPCManager = npcManager
+	FormationData = formationData
 
 	if not blueGoal then
 		warn("[TeamManager] Blue goal not found!")
@@ -50,6 +70,23 @@ function TeamManager.Initialize(blueGoal, redGoal)
 		warn("[TeamManager] Red goal not found!")
 	end
 
+	-- Create RemoteEvents for goal scoring
+	GoalRemoteFolder = ReplicatedStorage:FindFirstChild("GoalRemotes")
+	if not GoalRemoteFolder then
+		GoalRemoteFolder = Instance.new("Folder")
+		GoalRemoteFolder.Name = "GoalRemotes"
+		GoalRemoteFolder.Parent = ReplicatedStorage
+	end
+
+	GoalScored = Instance.new("RemoteEvent")
+	GoalScored.Name = "GoalScored"
+	GoalScored.Parent = GoalRemoteFolder
+
+	-- Start in kickoff mode (Blue attacks, Red frozen)
+	FrozenTeams = {"Red"}
+	TeamManager.FreezeTeams({"Red"})
+
+	print("[TeamManager] Initialized - Red frozen for kickoff")
 	return true
 end
 
@@ -330,9 +367,33 @@ end
 
 -- Reset all players and NPCs to their home positions
 function TeamManager.ResetAllPositions()
+	if not NPCManager or not FormationData then
+		warn("[TeamManager] NPCManager or FormationData not available for reset!")
+		return
+	end
+	
+	-- First, set both teams to Neutral formation
 	for _, teamName in ipairs({"Blue", "Red"}) do
-		local slots = TeamManager.GetTeamSlots(teamName)
-		for _, slot in ipairs(slots) do
+		local team = Teams[teamName]
+		if team then
+			team.Formation = "Neutral"
+		end
+	end
+	
+	-- Use NPCManager to recalculate positions for Neutral formation
+	for _, teamName in ipairs({"Blue", "Red"}) do
+		local team = Teams[teamName]
+		local slots = team.Slots
+		
+		-- Get Neutral formation positions from NPCManager
+		local neutralPositions = NPCManager.RecalculateTeamPositions(teamName, "Neutral")
+		
+		for i, slot in ipairs(slots) do
+			if neutralPositions[i] then
+				-- Update home position to Neutral formation position
+				slot.HomePosition = neutralPositions[i].WorldPosition
+			end
+			
 			if slot.NPC and slot.NPC.Parent and slot.HomePosition then
 				local root = slot.NPC:FindFirstChild("HumanoidRootPart")
 				local humanoid = slot.NPC:FindFirstChildOfClass("Humanoid")
@@ -346,7 +407,7 @@ function TeamManager.ResetAllPositions()
 			end
 		end
 	end
-	print("[TeamManager] Reset all positions")
+	print("[TeamManager] Reset all positions to Neutral formation")
 end
 
 -- Get all players on a team
@@ -399,6 +460,128 @@ function TeamManager.GetSmallerTeam()
 		-- Equal, return random
 		return math.random() > 0.5 and "Blue" or "Red"
 	end
+end
+
+-- Freeze specific teams (stop movement)
+function TeamManager.FreezeTeams(teamNames)
+	-- Update frozen teams array
+	FrozenTeams = teamNames
+	
+	for _, teamName in ipairs(teamNames) do
+		local slots = TeamManager.GetTeamSlots(teamName)
+		for _, slot in ipairs(slots) do
+			if slot.NPC and slot.NPC.Parent then
+				local humanoid = slot.NPC:FindFirstChildOfClass("Humanoid")
+				if humanoid then
+					humanoid.WalkSpeed = 0
+					humanoid:MoveTo(slot.NPC.HumanoidRootPart.Position)
+				end
+			end
+		end
+	end
+	print(string.format("[TeamManager] Frozen: %s", table.concat(teamNames, ", ")))
+end
+
+-- Unfreeze all teams (restore movement)
+function TeamManager.UnfreezeAllTeams()
+	-- Clear frozen teams array
+	FrozenTeams = {}
+	
+	for _, teamName in ipairs({"Blue", "Red"}) do
+		local slots = TeamManager.GetTeamSlots(teamName)
+		for _, slot in ipairs(slots) do
+			if slot.NPC and slot.NPC.Parent then
+				local humanoid = slot.NPC:FindFirstChildOfClass("Humanoid")
+				if humanoid then
+					humanoid.WalkSpeed = 16  -- Default AI speed
+				end
+			end
+		end
+	end
+	print("[TeamManager] All teams unfrozen")
+end
+
+-- Handle goal scored
+function TeamManager.OnGoalScored(scoringTeam)
+	if IsProcessingGoal then
+		return
+	end
+
+	IsProcessingGoal = true
+
+	-- Add score to team
+	TeamManager.AddScore(scoringTeam, 1)
+
+	-- Get current scores
+	local blueScore = TeamManager.GetScore("Blue")
+	local redScore = TeamManager.GetScore("Red")
+
+	-- Broadcast to all clients
+	if GoalScored then
+		GoalScored:FireAllClients(scoringTeam, blueScore, redScore)
+	end
+
+	print(string.format("[TeamManager] GOAL! %s scored! Score: Blue %d - Red %d", 
+		scoringTeam, blueScore, redScore))
+
+	-- Reset all positions (players and NPCs)
+	TeamManager.ResetAllPositions()
+
+	-- Freeze everyone after reset
+	TeamManager.FreezeTeams({"Blue", "Red"})
+
+	-- Wait for intermission
+	task.wait(GoalSettings.IntermissionTime)
+
+	-- Setup kickoff: Losing team attacks, winning team (defending) is frozen
+	local defendingTeam = scoringTeam  -- Team that just scored now defends
+	FrozenTeams = {defendingTeam}
+	
+	-- Unfreeze everyone, then freeze defending team for kickoff
+	TeamManager.UnfreezeAllTeams()
+	TeamManager.FreezeTeams({defendingTeam})
+
+	IsProcessingGoal = false
+end
+
+-- Check if kickoff and handle ball touch
+function TeamManager.OnBallTouched()
+	-- If any team is frozen (kickoff state), unfreeze everyone
+	if #FrozenTeams > 0 and not IsProcessingGoal then
+		FrozenTeams = {}
+		TeamManager.UnfreezeAllTeams()
+		print("[TeamManager] Kickoff complete - play started!")
+	end
+end
+
+-- Get current processing state
+function TeamManager.IsProcessingGoal()
+	return IsProcessingGoal
+end
+
+-- Get list of frozen teams
+function TeamManager.GetFrozenTeams()
+	return FrozenTeams
+end
+
+-- Check if a specific team is frozen
+function TeamManager.IsTeamFrozen(teamName)
+	for _, frozenTeam in ipairs(FrozenTeams) do
+		if frozenTeam == teamName then
+			return true
+		end
+	end
+	return false
+end
+
+-- Start a new kickoff (called by GameManager for match start/restart)
+-- attackingTeam: The team that will attack (other team is frozen)
+function TeamManager.StartKickoff(attackingTeam)
+	attackingTeam = attackingTeam or "Blue"
+	local defendingTeam = (attackingTeam == "Blue") and "Red" or "Blue"
+	FrozenTeams = {defendingTeam}
+	TeamManager.FreezeTeams({defendingTeam})
+	print(string.format("[TeamManager] Kickoff started - %s attacking, %s frozen", attackingTeam, defendingTeam))
 end
 
 -- Cleanup (for testing)

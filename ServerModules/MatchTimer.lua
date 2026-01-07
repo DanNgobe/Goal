@@ -24,6 +24,7 @@ local HeartbeatConnection = nil
 -- Remote Events
 local RemoteFolder = nil
 local TimerUpdate = nil
+local MatchEnded = nil
 
 -- Initialize the Match Timer
 function MatchTimer.Initialize(gameManager, duration)
@@ -42,6 +43,14 @@ function MatchTimer.Initialize(gameManager, duration)
 	TimerUpdate = Instance.new("RemoteEvent")
 	TimerUpdate.Name = "TimerUpdate"
 	TimerUpdate.Parent = RemoteFolder
+
+	-- Ensure MatchEnded RemoteEvent exists early so clients can subscribe
+	MatchEnded = RemoteFolder:FindFirstChild("MatchEnded")
+	if not MatchEnded then
+		MatchEnded = Instance.new("RemoteEvent")
+		MatchEnded.Name = "MatchEnded"
+		MatchEnded.Parent = RemoteFolder
+	end
 
 	print("[MatchTimer] Initialized")
 	return true

@@ -56,7 +56,12 @@ function GameManager.Initialize()
 	end
 
 	-- Step 5: Initialize TeamManager
-	local teamSuccess = Managers.TeamManager.Initialize(WorkspaceRefs.BlueGoal, WorkspaceRefs.RedGoal)
+	local teamSuccess = Managers.TeamManager.Initialize(
+		WorkspaceRefs.BlueGoal, 
+		WorkspaceRefs.RedGoal,
+		Managers.NPCManager,
+		Managers.FormationData
+	)
 	if not teamSuccess then
 		warn("[GameManager] Failed to initialize TeamManager!")
 		return false
@@ -70,57 +75,44 @@ function GameManager.Initialize()
 	Managers.TeamManager.SetupTeamSlots("Blue", blueNPCs)
 	Managers.TeamManager.SetupTeamSlots("Red", redNPCs)
 
-	-- Step 8: Initialize BallManager
-	local ballSuccess = Managers.BallManager.Initialize(WorkspaceRefs.Ball)
+	-- Step 8: Initialize BallManager with goals
+	local fieldCenter = Managers.NPCManager.GetFieldCenter()
+	local ballSuccess = Managers.BallManager.Initialize(
+		WorkspaceRefs.Ball,
+		WorkspaceRefs.BlueGoal,
+		WorkspaceRefs.RedGoal,
+		fieldCenter,
+		Managers.TeamManager
+	)
 	if not ballSuccess then
 		warn("[GameManager] Failed to initialize BallManager!")
 		return false
 	end
 
-	-- Step 9: Initialize GoalManager FIRST (before AI)
-	local fieldCenter = Managers.NPCManager.GetFieldCenter()
-	local goalSuccess = Managers.GoalManager.Initialize(
-		Managers.TeamManager,
-		Managers.BallManager,
-		WorkspaceRefs.Ball,
-		WorkspaceRefs.BlueGoal,
-		WorkspaceRefs.RedGoal,
-		fieldCenter
-	)
-	if not goalSuccess then
-		warn("[GameManager] Failed to initialize GoalManager!")
-		return false
-	end
-
-	-- Step 10: Initialize AIController (needs GoalManager for kickoff checks)
+	-- Step 9: Initialize AIController (needs TeamManager for kickoff checks)
 	local aiSuccess = Managers.AIController.Initialize(
 		Managers.TeamManager,
 		Managers.NPCManager,
 		Managers.BallManager,
-		Managers.FormationData,
-		Managers.GoalManager  -- Pass GoalManager for kickoff coordination
+		Managers.FormationData
 	)
 	if not aiSuccess then
 		warn("[GameManager] Failed to initialize AIController!")
 		return false
 	end
 
-	-- Step 11: Connect BallManager to GoalManager for kickoff handling
-	Managers.BallManager.SetGoalManager(Managers.GoalManager)
-	
-	-- Step 12: Initialize PlayerController
+	-- Step 10: Initialize PlayerController
 	local playerSuccess = Managers.PlayerController.Initialize(
 		Managers.TeamManager,
-		Managers.NPCManager,
-		Managers.GoalManager
+		Managers.NPCManager
 	)
 	if not playerSuccess then
 		warn("[GameManager] Failed to initialize PlayerController!")
 		return false
 	end
 
-	-- Step 13: Initialize and start MatchTimer
-	local timerSuccess = Managers.MatchTimer.Initialize(GameManager, 300)  -- 5 minutes
+	-- Step 11: Initialize and start MatchTimer
+	local timerSuccess = Managers.MatchTimer.Initialize(GameManager)  -- 5 minutes
 	if not timerSuccess then
 		warn("[GameManager] Failed to initialize MatchTimer!")
 		return false
@@ -187,7 +179,6 @@ function GameManager._LoadManagers()
 		"TeamManager",
 		"BallManager",
 		"AIController",
-		"GoalManager",
 		"PlayerController",
 		"MatchTimer"
 	}
@@ -251,7 +242,72 @@ function GameManager.EndMatch()
 	end
 
 	CurrentState = GameState.Ended
-	print("[GameManager] Match ended!")
+	
+	-- Determine winning team
+	local blueScore = Managers.TeamManager and Managers.TeamManager.GetScore("Blue") or 0
+	local redScore = Managers.TeamManager and Managers.TeamManager.GetScore("Red") or 0
+	local winningTeam = "Draw"
+
+	if blueScore > redScore then
+		winningTeam = "Blue"
+	elseif redScore > blueScore then
+		winningTeam = "Red"
+	end
+
+	-- Notify all clients
+	local gameRemotes = ReplicatedStorage:FindFirstChild("GameRemotes")
+	if gameRemotes then
+		local matchEnded = gameRemotes:FindFirstChild("MatchEnded")
+		if not matchEnded then
+			matchEnded = Instance.new("RemoteEvent")
+			matchEnded.Name = "MatchEnded"
+			matchEnded.Parent = gameRemotes
+		end
+		matchEnded:FireAllClients(winningTeam, blueScore, redScore)
+	end
+	
+	-- Freeze all players
+	if Managers.TeamManager then
+		Managers.TeamManager.FreezeTeams({"Blue", "Red"})
+	end
+	
+	-- Reset players: restore NPCs to slots and kill player characters
+	if Managers.PlayerController and Managers.PlayerController.ResetAllPlayersForNewMatch then
+		Managers.PlayerController.ResetAllPlayersForNewMatch()
+	end
+	
+	-- Wait for clients to show match end screen (5 seconds as per UIController)
+	-- Players will respawn during this time
+	task.wait(5)
+	
+	-- Reset all player/NPC positions similar to goal reset
+	if Managers.TeamManager then
+		Managers.TeamManager.ResetAllPositions()
+	end
+
+	-- Reset game state (ball to center)
+	GameManager.ResetRound()
+	
+	-- Reset scores
+	if Managers.TeamManager then
+		Managers.TeamManager.ResetScores()
+	end
+	
+	-- Unfreeze all teams for the new match
+	if Managers.TeamManager then
+		Managers.TeamManager.UnfreezeAllTeams()
+	end
+
+	-- Immediately start a new match: reset and restart timer
+	if Managers.MatchTimer then
+		Managers.MatchTimer.Reset()
+		Managers.MatchTimer.Start()
+	end
+
+	-- Set state to Playing for the new match
+	CurrentState = GameState.Playing
+	print("[GameManager] New match started")
+
 	return true
 end
 
@@ -259,17 +315,17 @@ end
 function GameManager.ResetRound()
 	print("[GameManager] Resetting round...")
 
-	-- Reset ball to center
-	if WorkspaceRefs.Ball and WorkspaceRefs.Ground then
-		local center = WorkspaceRefs.Ground.Position
-		WorkspaceRefs.Ball.Position = center + Vector3.new(0, 5, 0)
-		WorkspaceRefs.Ball.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-		WorkspaceRefs.Ball.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-	end
-
-	-- Detach ball if possessed
+	-- Detach ball first if possessed
 	if Managers.BallManager then
 		Managers.BallManager.DetachBall()
+	end
+	
+	-- Reset ball to center with zero velocity
+	if WorkspaceRefs.Ball and WorkspaceRefs.Ground then
+		local center = WorkspaceRefs.Ground.Position
+		WorkspaceRefs.Ball.CFrame = CFrame.new(center + Vector3.new(0, 5, 0))
+		WorkspaceRefs.Ball.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+		WorkspaceRefs.Ball.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
 	end
 
 	-- TODO: Return NPCs to positions (will be handled by AIController in later batch)
@@ -282,9 +338,6 @@ end
 function GameManager.Cleanup()
 	if Managers.MatchTimer then
 		Managers.MatchTimer.Cleanup()
-	end
-	if Managers.GoalManager then
-		Managers.GoalManager.Cleanup()
 	end
 	if Managers.AIController then
 		Managers.AIController.Cleanup()

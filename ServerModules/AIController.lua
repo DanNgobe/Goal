@@ -88,12 +88,11 @@ local UpdateConnection = nil
 -- INITIALIZATION
 --------------------------------------------------------------------------------
 
-function AIController.Initialize(teamManager, npcManager, ballManager, formationData, goalManager)
+function AIController.Initialize(teamManager, npcManager, ballManager, formationData)
 	TeamManager = teamManager
 	NPCManager = npcManager
 	BallManager = ballManager
 	FormationData = formationData
-	GoalManager = goalManager
 
 	if not TeamManager or not NPCManager or not BallManager or not FormationData then
 		warn("[AIController] Missing required managers!")
@@ -195,10 +194,9 @@ function StartUpdateLoop()
 end
 
 function UpdateAllAI()
-	-- Check if we're in kickoff mode or processing a goal
-	local isKickoff = GoalManager and GoalManager.IsInKickoff()
-	local isProcessingGoal = GoalManager and GoalManager.IsProcessingGoal()
-	local kickoffTeam = GoalManager and GoalManager.GetKickoffTeam()
+	-- Check if we're processing a goal
+	local isProcessingGoal = TeamManager and TeamManager.IsProcessingGoal()
+	local frozenTeams = TeamManager and TeamManager.GetFrozenTeams() or {}
 
 	-- Don't update AI during goal intermission
 	if isProcessingGoal then
@@ -207,8 +205,9 @@ function UpdateAllAI()
 
 	-- Update each team
 	for _, teamName in ipairs({"Blue", "Red"}) do
-		-- Skip AI updates for frozen team during kickoff
-		if isKickoff and teamName ~= kickoffTeam then
+		-- Skip AI updates for frozen teams
+		local isFrozen = TeamManager and TeamManager.IsTeamFrozen(teamName)
+		if isFrozen then
 			-- This team is frozen, skip AI
 			continue
 		end
@@ -432,15 +431,12 @@ function TryShoot(slot, npc, root, teamName)
 		return false
 	end
 
-	-- Check angle
+	-- Make NPC look at goal first
 	local dirToGoal = (goalPos - root.Position).Unit
-	local facing = root.CFrame.LookVector
-
-	if dirToGoal:Dot(facing) < Config.ShootAngle then
-		-- Turn toward goal
-		MoveToward(npc:FindFirstChildOfClass("Humanoid"), root, goalPos)
-		return false
-	end
+	root.CFrame = CFrame.new(root.Position, root.Position + Vector3.new(dirToGoal.X, 0, dirToGoal.Z))
+	
+	-- Small delay to let rotation settle
+	task.wait(0.1)
 
 	-- Shoot!
 	local power = math.clamp(dist / Config.Distance.ShootRange, 0.5, 1)
@@ -457,8 +453,17 @@ function TryPass(slot, npc, root, teamName)
 		return false
 	end
 
-	-- Pass to target
+	-- Calculate direction to target
 	local dir = (bestTarget.Position - root.Position).Unit
+	
+	-- Make NPC look at destination first
+	local lookAtCFrame = CFrame.new(root.Position, root.Position + dir)
+	root.CFrame = CFrame.new(root.Position, root.Position + Vector3.new(dir.X, 0, dir.Z))
+	
+	-- Small delay to let rotation settle
+	task.wait(0.1)
+	
+	-- Pass to target
 	local power = math.clamp(bestTarget.Distance / Config.Distance.PassRange, 0.3, 0.8)
 	BallManager.KickBall(npc, "Ground", power, dir)
 

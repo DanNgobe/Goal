@@ -21,6 +21,7 @@ local TweenService = game:GetService("TweenService")
 -- Private variables
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
+local CameraController = nil
 
 -- UI Elements
 local ScreenGui = nil
@@ -38,7 +39,10 @@ local CurrentRedScore = 0
 local CurrentTime = 300  -- 5 minutes in seconds
 
 -- Initialize the UI Controller
-function UIController.Initialize()
+function UIController.Initialize(cameraController)
+	-- Store reference to CameraController
+	CameraController = cameraController
+	
 	-- Create main ScreenGui
 	UIController._CreateUI()
 
@@ -343,11 +347,21 @@ function UIController._CreateTeamJoinPanel()
 	blueButton.MouseButton1Click:Connect(function()
 		joinTeamRequest:FireServer("Blue")
 		JoinPanel.Visible = false
+		
+		-- Lock mouse when team is selected
+		if CameraController then
+			CameraController.LockMouse()
+		end
 	end)
 	
 	redButton.MouseButton1Click:Connect(function()
 		joinTeamRequest:FireServer("Red")
 		JoinPanel.Visible = false
+		
+		-- Lock mouse when team is selected
+		if CameraController then
+			CameraController.LockMouse()
+		end
 	end)
 	
 	-- Hide panel when player joins
@@ -379,6 +393,14 @@ function UIController._ConnectTimerEvents()
 		timerUpdate.OnClientEvent:Connect(function(timeRemaining)
 			UIController._UpdateTimer(timeRemaining)
 		end)
+		
+		-- Connect to match ended event
+		local matchEnded = gameRemotes:WaitForChild("MatchEnded", 5)
+		if matchEnded then
+			matchEnded.OnClientEvent:Connect(function(winningTeam, blueScore, redScore)
+				UIController._OnMatchEnded(winningTeam, blueScore, redScore)
+			end)
+		end
 	end)
 end
 
@@ -521,6 +543,64 @@ function UIController.ShowMessage(message, duration, color)
 
 	task.wait(duration)
 	IntermissionFrame.Visible = false
+end
+
+-- Private: Handle match ended
+function UIController._OnMatchEnded(winningTeam, blueScore, redScore)
+	print("[UIController] Match ended! Winner:", winningTeam)
+	
+	-- Update final scores
+	CurrentBlueScore = blueScore
+	CurrentRedScore = redScore
+	UIController._UpdateScoreboard()
+	
+	-- Determine winner text and color
+	local winnerText = ""
+	local winnerColor = Color3.new(1, 1, 1)
+	
+	if winningTeam == "Blue" then
+		winnerText = "🏆 BLUE TEAM WINS! 🏆"
+		winnerColor = Color3.fromRGB(30, 130, 255)
+	elseif winningTeam == "Red" then
+		winnerText = "🏆 RED TEAM WINS! 🏆"
+		winnerColor = Color3.fromRGB(255, 60, 60)
+	else
+		winnerText = "⚖️ DRAW! ⚖️"
+		winnerColor = Color3.fromRGB(255, 215, 0)
+	end
+	
+	-- Show match end screen
+	GoalText.TextColor3 = winnerColor
+	GoalText.Text = winnerText
+	SubText.Text = string.format("Final Score: %d - %d", blueScore, redScore)
+	SubText.TextColor3 = Color3.fromRGB(255, 255, 255)
+	
+	IntermissionFrame.Visible = true
+	IntermissionFrame.BackgroundTransparency = 0.1
+	GoalText.TextTransparency = 0
+	SubText.TextTransparency = 0
+	
+	-- Wait 5 seconds then unlock mouse and show team selection
+	task.wait(5)
+	
+	-- Unlock mouse
+	if CameraController then
+		CameraController.UnlockMouse()
+	end
+	
+	-- Hide match end screen
+	IntermissionFrame.Visible = false
+	
+	-- Show team selection panel
+	local teamJoinPanel = ScreenGui:FindFirstChild("TeamJoinPanel")
+	if teamJoinPanel then
+		teamJoinPanel.Visible = true
+	end
+
+	-- Reset scoreboard for new match
+	CurrentBlueScore = 0
+	CurrentRedScore = 0
+	UIController._UpdateScoreboard()
 end
 
 return UIController

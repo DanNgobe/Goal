@@ -1,9 +1,8 @@
 --[[
-	BallControlClient.lua (Enhanced)
-	Client-side ball control with trajectory preview and power meter.
+	BallControlClient.lua
+	Client-side ball control with power meter.
 	
 	Features:
-	- Visual trajectory preview with physics simulation
 	- Enhanced power meter with color zones
 	- Clean, focused mechanics
 ]]
@@ -33,11 +32,7 @@ local ChargeFrame = nil
 local ChargeBar = nil
 local ChargeLabel = nil
 
--- 3D Visual Elements
-local TrajectoryFolder = nil
-local TrajectoryPoints = {}
-local TrajectoryAttachments = {}
-local TrajectoryBeam = nil
+-- 3D Visual Elements (removed)
 
 -- Remote Events
 local BallRemotes = nil
@@ -49,13 +44,6 @@ local Settings = {
 	MaxChargeTime = 2,
 	MinPower = 0.3,
 
-	-- Trajectory Visual
-	UseBeam = false,  -- true = smooth line, false = dots
-	TrajectoryPointCount = 25,  -- Number of prediction points
-	TrajectorySpacing = 0.05,   -- Time between points (smaller = more accurate)
-	TrajectorySize = 0.4,       -- Size of each point (if using dots)
-	BeamWidth = 0.5,            -- Width of trajectory line
-
 	-- Kick Physics (must match server!)
 	GroundKickSpeed = 100,
 	AirKickSpeed = 90,
@@ -65,8 +53,6 @@ local Settings = {
 	ColorPowerLow = Color3.fromRGB(100, 255, 100),
 	ColorPowerMed = Color3.fromRGB(255, 200, 0),
 	ColorPowerHigh = Color3.fromRGB(255, 100, 100),
-	ColorTrajectory = Color3.fromRGB(255, 255, 100),
-	ColorTrajectoryFaded = Color3.fromRGB(150, 150, 50)
 }
 
 --------------------------------------------------------------------------------
@@ -89,9 +75,8 @@ function BallControlClient.Initialize()
 		return false
 	end
 
-	-- Create UI and 3D visuals
+	-- Create UI
 	CreateChargeUI()
-	Create3DVisuals()
 
 	-- Listen for possession changes
 	PossessionChanged.OnClientEvent:Connect(function(hasBall)
@@ -108,7 +93,7 @@ function BallControlClient.Initialize()
 		ConnectCharacter()
 	end)
 
-	print("[BallControlClient] Initialized with trajectory preview")
+	print("[BallControlClient] Initialized")
 	return true
 end
 
@@ -202,132 +187,6 @@ function CreatePowerZones(parent)
 end
 
 --------------------------------------------------------------------------------
--- 3D TRAJECTORY VISUALS
---------------------------------------------------------------------------------
-
-function Create3DVisuals()
-	-- Create folder in workspace
-	TrajectoryFolder = Instance.new("Folder")
-	TrajectoryFolder.Name = "TrajectoryVisuals"
-	TrajectoryFolder.Parent = workspace
-
-	if Settings.UseBeam then
-		-- Create beam-based trajectory (smooth line)
-		CreateBeamTrajectory()
-	else
-		-- Create dot-based trajectory
-		CreateDotTrajectory()
-	end
-
-	print("[BallControlClient] Created trajectory visuals (Beam mode: " .. tostring(Settings.UseBeam) .. ")")
-end
-
-function CreateBeamTrajectory()
-	-- Create parts with attachments for the beam to connect
-	for i = 1, Settings.TrajectoryPointCount do
-		local point = Instance.new("Part")
-		point.Name = "TrajectoryPoint_" .. i
-		point.Size = Vector3.new(0.1, 0.1, 0.1)
-		point.Transparency = 1  -- Invisible, just holds attachment
-		point.CanCollide = false
-		point.Anchored = true
-		point.CastShadow = false
-		point.Parent = TrajectoryFolder
-
-		-- Create attachment for beam
-		local attachment = Instance.new("Attachment")
-		attachment.Name = "BeamAttachment"
-		attachment.Parent = point
-
-		table.insert(TrajectoryPoints, point)
-		table.insert(TrajectoryAttachments, attachment)
-
-		-- Create beam connecting to previous point
-		if i > 1 then
-			local beam = Instance.new("Beam")
-			beam.Name = "TrajectoryBeam_" .. i
-			beam.Attachment0 = TrajectoryAttachments[i - 1]
-			beam.Attachment1 = attachment
-			beam.Width0 = Settings.BeamWidth
-			beam.Width1 = Settings.BeamWidth
-			beam.Color = ColorSequence.new(Settings.ColorTrajectory)
-			beam.Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 0.2),
-				NumberSequenceKeypoint.new(1, 0.8)
-			})
-			beam.FaceCamera = true
-			beam.Texture = "rbxasset://textures/particles/smoke_main.dds"
-			beam.TextureMode = Enum.TextureMode.Wrap
-			beam.TextureLength = 2
-			beam.LightEmission = 0.8
-			beam.LightInfluence = 0
-			beam.Enabled = false  -- Start hidden
-			beam.Parent = point
-		end
-	end
-end
-
-function CreateDotTrajectory()
-	-- Create trajectory point pool (original dot method)
-	for i = 1, Settings.TrajectoryPointCount do
-		local point = Instance.new("Part")
-		point.Name = "TrajectoryPoint_" .. i
-		point.Size = Vector3.new(Settings.TrajectorySize, Settings.TrajectorySize, Settings.TrajectorySize)
-		point.Shape = Enum.PartType.Ball
-		point.Material = Enum.Material.Neon
-		point.Color = Settings.ColorTrajectory
-		point.CanCollide = false
-		point.Anchored = true
-		point.Transparency = 1  -- Start hidden
-		point.CastShadow = false
-		point.Parent = TrajectoryFolder
-
-		-- Add glow effect
-		local light = Instance.new("PointLight")
-		light.Brightness = 2
-		light.Range = 8
-		light.Color = Settings.ColorTrajectory
-		light.Enabled = false
-		light.Parent = point
-
-		table.insert(TrajectoryPoints, point)
-	end
-end
-
-function ShowTrajectory()
-	if Settings.UseBeam then
-		-- Enable all beams
-		for _, point in ipairs(TrajectoryPoints) do
-			local beam = point:FindFirstChildOfClass("Beam")
-			if beam then
-				beam.Enabled = true
-			end
-		end
-	end
-end
-
-function HideTrajectory()
-	if Settings.UseBeam then
-		-- Disable all beams
-		for _, point in ipairs(TrajectoryPoints) do
-			local beam = point:FindFirstChildOfClass("Beam")
-			if beam then
-				beam.Enabled = false
-			end
-		end
-	else
-		-- Hide dots
-		for _, point in ipairs(TrajectoryPoints) do
-			point.Transparency = 1
-			local light = point:FindFirstChildOfClass("PointLight")
-			if light then
-				light.Enabled = false
-			end
-		end
-	end
-end
-
---------------------------------------------------------------------------------
 -- INPUT & CHARACTER
 --------------------------------------------------------------------------------
 
@@ -369,7 +228,6 @@ function SetupUpdateLoop()
 	RunService.RenderStepped:Connect(function(dt)
 		if IsChargingGroundKick or IsChargingAirKick then
 			UpdateChargeBar()
-			UpdateTrajectoryPreview()
 		end
 	end)
 end
@@ -387,144 +245,6 @@ function UpdateChargeBar()
 		ChargeBar.BackgroundColor3 = Settings.ColorPowerMed
 	else
 		ChargeBar.BackgroundColor3 = Settings.ColorPowerHigh
-	end
-end
-
-function UpdateTrajectoryPreview()
-	if not RootPart or not Character then 
-		print("[Trajectory] No RootPart or Character!")
-		HideTrajectory()
-		return 
-	end
-
-	local direction = GetKickDirection()
-	local power = GetChargePower()
-	local kickType = IsChargingAirKick and "Air" or "Ground"
-
-	-- Calculate initial velocity
-	local baseSpeed = kickType == "Air" and Settings.AirKickSpeed or Settings.GroundKickSpeed
-	local velocity = direction * (baseSpeed * power)
-
-	-- Add upward component
-	if kickType == "Air" then
-		velocity = velocity + Vector3.new(0, Settings.AirKickUpwardForce * power, 0)
-	else
-		-- Ground kicks also need a small upward component for realistic arc
-		velocity = velocity + Vector3.new(0, 5 * power, 0)  -- Small lift
-	end
-
-	-- Starting position (in front of player at chest/head height)
-	local heightOffset = 2  -- Start at chest height (humanoids are ~5 studs tall)
-	local forwardOffset = 3   -- Distance in front of player
-	local startPos = RootPart.Position + direction * forwardOffset + Vector3.new(0, heightOffset, 0)
-
-	-- CRITICAL: Force trajectory to start above ground
-	-- If player is somehow underground, clamp the Y position
-	if startPos.Y < 2 then
-		warn("[Trajectory] Player appears underground! Y=" .. startPos.Y .. ", forcing to Y=2")
-		startPos = Vector3.new(startPos.X, 2, startPos.Z)
-	end
-
-	-- Gravity
-	local gravity = Vector3.new(0, -workspace.Gravity, 0)
-
-	print(string.format("[Trajectory] Start: %s, Vel: %s, Points: %d", tostring(startPos), tostring(velocity), #TrajectoryPoints))
-
-	-- Simulate trajectory
-	local hitGround = false
-	local lastValidIndex = Settings.TrajectoryPointCount
-
-	for i = 1, Settings.TrajectoryPointCount do
-		-- Calculate position at this time step
-		local t = (i - 1) * Settings.TrajectorySpacing
-		local position = startPos + velocity * t + 0.5 * gravity * t * t
-
-		-- Check if point exists
-		if not TrajectoryPoints[i] then
-			warn("TrajectoryPoints[" .. i .. "] is nil!")
-			break
-		end
-
-		-- Check if hit ground
-		if position.Y < 1 then
-			-- Clamp to ground level
-			position = Vector3.new(position.X, 1, position.Z)
-			hitGround = true
-			lastValidIndex = i
-			if i <= 3 then
-				print(string.format("[Trajectory] Hit ground at point %d, Y was %.2f", i, (startPos + velocity * t + 0.5 * gravity * t * t).Y))
-			end
-		end
-
-		-- Update point position
-		TrajectoryPoints[i].Position = position
-
-		if Settings.UseBeam then
-			-- Beams are always visible when enabled, just update positions
-			-- Fade far points by adjusting beam transparency
-			local beam = TrajectoryPoints[i]:FindFirstChildOfClass("Beam")
-			if beam then
-				local fadeRatio = i / Settings.TrajectoryPointCount
-				beam.Transparency = NumberSequence.new({
-					NumberSequenceKeypoint.new(0, 0.2 + fadeRatio * 0.3),
-					NumberSequenceKeypoint.new(1, 0.5 + fadeRatio * 0.4)
-				})
-
-				-- Hide beam if past ground hit
-				if hitGround and i > lastValidIndex then
-					beam.Enabled = false
-				else
-					beam.Enabled = true
-				end
-
-				if i == 2 then
-					print(string.format("[Trajectory] Beam 2 enabled: %s, transparency: %s", tostring(beam.Enabled), tostring(beam.Transparency)))
-				end
-			else
-				if i == 2 then
-					print("[Trajectory] Point 2 has NO BEAM!")
-				end
-			end
-		else
-			-- Dot mode: update transparency and color
-			local fadeRatio = i / Settings.TrajectoryPointCount
-			TrajectoryPoints[i].Transparency = 0.2 + (fadeRatio * 0.7)
-			TrajectoryPoints[i].Color = Settings.ColorTrajectory:Lerp(Settings.ColorTrajectoryFaded, fadeRatio)
-
-			local light = TrajectoryPoints[i]:FindFirstChildOfClass("PointLight")
-			if light then
-				light.Enabled = not hitGround or i <= lastValidIndex
-				light.Brightness = 2 * (1 - fadeRatio)
-			end
-
-			-- Hide if past ground hit
-			if hitGround and i > lastValidIndex then
-				TrajectoryPoints[i].Transparency = 1
-				if light then
-					light.Enabled = false
-				end
-			end
-		end
-
-		-- Stop calculating if we hit ground
-		if hitGround and i >= lastValidIndex then
-			-- Hide remaining points
-			for j = i + 1, Settings.TrajectoryPointCount do
-				if Settings.UseBeam then
-					local remainingBeam = TrajectoryPoints[j]:FindFirstChildOfClass("Beam")
-					if remainingBeam then
-						remainingBeam.Enabled = false
-					end
-				else
-					TrajectoryPoints[j].Transparency = 1
-					local remainingLight = TrajectoryPoints[j]:FindFirstChildOfClass("PointLight")
-					if remainingLight then
-						remainingLight.Enabled = false
-					end
-				end
-			end
-			break
-		end
 	end
 end
 
@@ -564,7 +284,6 @@ function StartGroundKick()
 	ChargeStartTime = tick()
 	ChargeFrame.Visible = true
 	ChargeLabel.Text = "GROUND KICK"
-	ShowTrajectory()
 
 	print("[BallControlClient] Started ground kick charge")
 end
@@ -574,7 +293,6 @@ function ReleaseGroundKick()
 
 	IsChargingGroundKick = false
 	ChargeFrame.Visible = false
-	HideTrajectory()
 
 	if HasBall and Character and RootPart then
 		local power = GetChargePower()
@@ -592,7 +310,6 @@ function StartAirKick()
 	ChargeStartTime = tick()
 	ChargeFrame.Visible = true
 	ChargeLabel.Text = "AIR KICK"
-	ShowTrajectory()
 
 	print("[BallControlClient] Started air kick charge")
 end
@@ -602,7 +319,6 @@ function ReleaseAirKick()
 
 	IsChargingAirKick = false
 	ChargeFrame.Visible = false
-	HideTrajectory()
 
 	if HasBall and Character and RootPart then
 		local power = GetChargePower()
@@ -629,7 +345,6 @@ function OnPossessionChanged(hasBall)
 		IsChargingGroundKick = false
 		IsChargingAirKick = false
 		ChargeFrame.Visible = false
-		HideTrajectory()
 	end
 
 	print("[BallControlClient] Possession changed: " .. tostring(hasBall))
@@ -641,13 +356,6 @@ end
 
 function BallControlClient.HasBall()
 	return HasBall
-end
-
--- Allow external tweaking of trajectory settings
-function BallControlClient.SetTrajectorySettings(pointCount, spacing, size)
-	if pointCount then Settings.TrajectoryPointCount = pointCount end
-	if spacing then Settings.TrajectorySpacing = spacing end
-	if size then Settings.TrajectorySize = size end
 end
 
 return BallControlClient

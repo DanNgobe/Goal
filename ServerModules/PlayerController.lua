@@ -18,7 +18,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- Dependencies (injected)
 local TeamManager = nil
 local NPCManager = nil
-local GoalManager = nil
 
 -- Player tracking
 local PlayerSlots = {}  -- {[Player] = {Team = "Blue", SlotIndex = 1}}
@@ -30,10 +29,9 @@ local SwitchSlotRequest = nil
 local PlayerJoined = nil
 
 -- Initialize
-function PlayerController.Initialize(teamManager, npcManager, goalManager)
+function PlayerController.Initialize(teamManager, npcManager)
 	TeamManager = teamManager
 	NPCManager = npcManager
-	GoalManager = goalManager
 	
 	if not TeamManager or not NPCManager then
 		warn("[PlayerController] Missing required managers!")
@@ -142,11 +140,6 @@ function AssignPlayerToSlot(player, teamName, slotIndex)
 			root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
 			root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
 		end
-	end
-	
-	-- Set collision group for player
-	if GoalManager and player.Character then
-		GoalManager.SetCharacterCollisionGroup(player.Character, "Players")
 	end
 	
 	-- Notify client
@@ -306,6 +299,41 @@ end
 -- Public: Check if player is on a team
 function PlayerController.IsPlayerOnTeam(player)
 	return PlayerSlots[player] ~= nil
+end
+
+-- Public: Reset all players back to NPCs and kill characters (for match end)
+function PlayerController.ResetAllPlayersForNewMatch()
+	-- Replace player-controlled slots with NPCs
+	for player, data in pairs(PlayerSlots) do
+		-- Kill player character
+		if player.Character then
+			local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+			if humanoid then
+				humanoid.Health = 0
+			end
+		end
+
+		local slots = TeamManager.GetTeamSlots(data.Team)
+		local slot = slots[data.SlotIndex]
+		if slot then
+			local npcTemplate = game:GetService("ServerStorage"):FindFirstChild("NPCs")
+			if npcTemplate then
+				local teamTemplate = npcTemplate:FindFirstChild(data.Team)
+				if teamTemplate then
+					local spawnPos = slot.HomePosition
+					if NPCManager and teamTemplate then
+						local npcData = NPCManager.SpawnNPC(teamTemplate, data.Team, slot.Role, spawnPos)
+						if npcData then
+							slot.NPC = npcData.Model
+							slot.IsAI = true
+						end
+					end
+				end
+			end
+		end
+	end
+
+	PlayerSlots = {}
 end
 
 -- Cleanup

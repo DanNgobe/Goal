@@ -17,6 +17,7 @@ local Players = game:GetService("Players")
 local Debris = game:GetService("Debris")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local PhysicsService = game:GetService("PhysicsService")
 
 -- Settings
 local Settings = {
@@ -41,6 +42,11 @@ local TouchCooldown = {}  -- Key is now Character
 local HeartbeatConnection = nil
 local TouchConnection = nil
 
+-- Goal references
+local BlueGoal = nil
+local RedGoal = nil
+local GoalTouchConnections = {}
+
 -- Remote Events
 local RemoteFolder = nil
 local KickBall = nil
@@ -48,14 +54,24 @@ local PossessionChanged = nil
 
 -- Callbacks for external systems
 local PossessionChangedCallback = nil
-local GoalManager = nil
+local TeamManager = nil
+local FieldCenter = nil
 
 -- Initialize the Ball Manager
-function BallManager.Initialize(ballPart)
+function BallManager.Initialize(ballPart, blueGoal, redGoal, fieldCenter, teamManager)
 	Ball = ballPart
+	BlueGoal = blueGoal
+	RedGoal = redGoal
+	FieldCenter = fieldCenter
+	TeamManager = teamManager
 
 	if not Ball then
 		warn("[BallManager] Ball part not found!")
+		return false
+	end
+
+	if not BlueGoal or not RedGoal then
+		warn("[BallManager] Goals not found!")
 		return false
 	end
 
@@ -63,6 +79,9 @@ function BallManager.Initialize(ballPart)
 	if not KickSound then
 		warn("[BallManager] Kick sound not found in Ball!")
 	end
+
+	-- Setup collision groups
+	BallManager._SetupCollisionGroups()
 
 	-- Create RemoteEvents
 	RemoteFolder = Instance.new("Folder")
@@ -82,8 +101,36 @@ function BallManager.Initialize(ballPart)
 	BallManager._SetupKickHandler()
 	BallManager._SetupHeartbeat()
 	BallManager._SetupPlayerCleanup()
+	BallManager._SetupGoalDetection()
 
+	print("[BallManager] Initialized with goal detection")
 	return true
+end
+
+-- Private: Setup goal zone detection
+function BallManager._SetupGoalDetection()
+	-- Blue Goal detection
+	local blueConnection = BlueGoal.Touched:Connect(function(hit)
+		if hit == Ball and TeamManager then
+			-- Reset ball immediately
+			BallManager.ResetBallToCenter()
+			-- Notify TeamManager
+			TeamManager.OnGoalScored("Red")  -- Red scores in Blue's goal
+		end
+	end)
+	table.insert(GoalTouchConnections, blueConnection)
+
+	-- Red Goal detection
+	local redConnection = RedGoal.Touched:Connect(function(hit)
+		if hit == Ball and TeamManager then
+			-- Reset ball immediately
+			BallManager.ResetBallToCenter()
+			-- Notify TeamManager
+			TeamManager.OnGoalScored("Blue")  -- Blue scores in Red's goal
+		end
+	end)
+	table.insert(GoalTouchConnections, redConnection)
+	print("[BallManager] Goal detection active")
 end
 
 -- Set a callback for when possession changes (for AI to listen)
@@ -91,9 +138,29 @@ function BallManager.OnPossessionChanged(callback)
 	PossessionChangedCallback = callback
 end
 
--- Set GoalManager reference for kickoff handling
-function BallManager.SetGoalManager(goalManager)
-	GoalManager = goalManager
+-- Reset ball to center (called by TeamManager after goals)
+function BallManager.ResetBallToCenter()
+	if not Ball or not FieldCenter then
+		warn("[BallManager] Cannot reset ball - missing Ball or FieldCenter")
+		return
+	end
+
+	-- Detach ball if possessed
+	BallManager.DetachBall()
+
+	-- Reset ball position to center
+	Ball.CFrame = CFrame.new(FieldCenter + Vector3.new(0, 10, 0))
+	Ball.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+	Ball.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+
+	print("[BallManager] Ball reset to center")
+end
+
+-- Private: Setup collision groups for the ball
+function BallManager._SetupCollisionGroups()
+	if Ball then
+		Ball.CollisionGroup = "Ball"
+	end
 end
 
 -- Private: Attach ball to character
@@ -258,6 +325,33 @@ function BallManager.DetachBall()
 	DetachBall()
 end
 
+-- Private: Choose kick animation based on direction and power
+local function ChooseKickAnimation(rootPart, direction, power, kickType)
+	-- Determine if ball is going left or right relative to character
+	local characterRight = rootPart.CFrame.RightVector
+	local dotRight = characterRight:Dot(direction)
+
+	-- Determine if it's a pass (low power) or strike (high power)
+	local isStrike = power > 0.85 or kickType == "Air"
+
+	if isStrike then
+		-- Strike animations (powerful shots)
+		if dotRight > 0 then
+			return "rbxassetid://76069154190283"  -- Strike Right Kick
+		else
+			return "rbxassetid://108579500601701" -- Strike Left Kick
+		end
+	else
+		-- Pass animations (lower power passes)
+		if dotRight > 0 then
+			return "rbxassetid://133927349049921" -- Pass Right Kick
+		else
+			return "rbxassetid://99205226261734"  -- Pass Left Kick
+		end
+	end
+end
+
+
 -- Kick the ball (called by players via remote or by AI directly)
 function BallManager.KickBall(character, kickType, power, direction)
 	if CurrentOwnerCharacter ~= character then
@@ -292,8 +386,9 @@ function BallManager.KickBall(character, kickType, power, direction)
 	humanoid.WalkSpeed = 0
 	rootPart.Anchored = true
 
-	-- Load and play kick animation
-	local kickAnimationId = "rbxassetid://108579500601701" --13755924377"
+	-- Choose kick animation based on direction and power
+	local kickAnimationId = ChooseKickAnimation(rootPart, direction, power, kickType)
+
 	local animator = humanoid:FindFirstChildOfClass("Animator")
 	if not animator then
 		animator = Instance.new("Animator")
@@ -311,9 +406,9 @@ function BallManager.KickBall(character, kickType, power, direction)
 	-- Calculate kick force
 	local maxPower = kickType == "Ground" and Settings.Ground_Kick_Max or Settings.Air_Kick_Max
 	local maxHeight = kickType == "Ground" and Settings.Ground_Kick_Height or Settings.Air_Kick_Height
-	local force = maxPower * powerCurve * 2
+	local force = maxPower * powerCurve * 1.5
 	local height = maxHeight * powerCurve
-	
+
 	-- Restore character movement after animation
 	task.spawn(function()
 		task.wait(animTrack.Length)
@@ -323,9 +418,9 @@ function BallManager.KickBall(character, kickType, power, direction)
 			animTrack:Stop()
 		end
 	end)
-	
+
 	task.wait(0.3)
-	
+
 	-- Apply velocity
 	local velocity = Instance.new("BodyVelocity")
 	velocity.Parent = Ball
@@ -354,9 +449,9 @@ function BallManager._SetupTouchDetection()
 			return
 		end
 
-		 -- Check if touched by foot or leg 
+		-- Check if touched by foot or leg 
 		if not (part.Name == "Shoes" or part.Name == "Socks") then
-		 return
+			return
 		end
 
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -374,9 +469,9 @@ function BallManager._SetupTouchDetection()
 			TouchCooldown[character] = tick()
 			BallManager.SetPossession(character, rootPart)
 
-			-- Notify GoalManager about ball touch (for kickoff)
-			if GoalManager then
-				GoalManager.OnBallTouched()
+			-- Notify TeamManager about ball touch (for kickoff)
+			if TeamManager and TeamManager.OnBallTouched then
+				TeamManager.OnBallTouched()
 			end
 		end
 	end)
