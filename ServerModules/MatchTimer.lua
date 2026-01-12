@@ -29,7 +29,7 @@ local MatchEnded = nil
 -- Initialize the Match Timer
 function MatchTimer.Initialize(gameManager, duration)
 	GameManager = gameManager
-	MatchDuration = duration or 300
+	MatchDuration = duration or MatchDuration
 	TimeRemaining = MatchDuration
 
 	-- Create RemoteEvents

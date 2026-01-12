@@ -42,7 +42,7 @@ local CurrentTime = 300  -- 5 minutes in seconds
 function UIController.Initialize(cameraController)
 	-- Store reference to CameraController
 	CameraController = cameraController
-	
+
 	-- Create main ScreenGui
 	UIController._CreateUI()
 
@@ -258,7 +258,7 @@ function UIController._CreateUI()
 	subStroke.Color = Color3.new(0, 0, 0)
 	subStroke.Thickness = 2
 	subStroke.Parent = SubText
-	
+
 	-- Team Join Panel (bottom center)
 	UIController._CreateTeamJoinPanel()
 end
@@ -273,17 +273,17 @@ function UIController._CreateTeamJoinPanel()
 	JoinPanel.BackgroundTransparency = 0.15
 	JoinPanel.BorderSizePixel = 0
 	JoinPanel.Parent = ScreenGui
-	
+
 	local joinCorner = Instance.new("UICorner")
 	joinCorner.CornerRadius = UDim.new(0.15, 0)
 	joinCorner.Parent = JoinPanel
-	
+
 	local joinStroke = Instance.new("UIStroke")
 	joinStroke.Color = Color3.fromRGB(150, 150, 150)
 	joinStroke.Thickness = 2
 	joinStroke.Transparency = 0.5
 	joinStroke.Parent = JoinPanel
-	
+
 	-- Title
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
@@ -295,7 +295,7 @@ function UIController._CreateTeamJoinPanel()
 	title.TextColor3 = Color3.fromRGB(255, 255, 255)
 	title.Text = "JOIN TEAM"
 	title.Parent = JoinPanel
-	
+
 	-- Blue Team Button
 	local blueButton = Instance.new("TextButton")
 	blueButton.Name = "BlueButton"
@@ -308,16 +308,16 @@ function UIController._CreateTeamJoinPanel()
 	blueButton.TextColor3 = Color3.new(1, 1, 1)
 	blueButton.Text = "BLUE"
 	blueButton.Parent = JoinPanel
-	
+
 	local blueButtonCorner = Instance.new("UICorner")
 	blueButtonCorner.CornerRadius = UDim.new(0.2, 0)
 	blueButtonCorner.Parent = blueButton
-	
+
 	local blueButtonStroke = Instance.new("UIStroke")
 	blueButtonStroke.Color = Color3.fromRGB(100, 180, 255)
 	blueButtonStroke.Thickness = 2
 	blueButtonStroke.Parent = blueButton
-	
+
 	-- Red Team Button
 	local redButton = Instance.new("TextButton")
 	redButton.Name = "RedButton"
@@ -330,40 +330,40 @@ function UIController._CreateTeamJoinPanel()
 	redButton.TextColor3 = Color3.new(1, 1, 1)
 	redButton.Text = "RED"
 	redButton.Parent = JoinPanel
-	
+
 	local redButtonCorner = Instance.new("UICorner")
 	redButtonCorner.CornerRadius = UDim.new(0.2, 0)
 	redButtonCorner.Parent = redButton
-	
+
 	local redButtonStroke = Instance.new("UIStroke")
 	redButtonStroke.Color = Color3.fromRGB(255, 130, 130)
 	redButtonStroke.Thickness = 2
 	redButtonStroke.Parent = redButton
-	
+
 	-- Button events
 	local playerRemotes = ReplicatedStorage:WaitForChild("PlayerRemotes")
 	local joinTeamRequest = playerRemotes:WaitForChild("JoinTeamRequest")
-	
+
 	blueButton.MouseButton1Click:Connect(function()
 		joinTeamRequest:FireServer("Blue")
 		JoinPanel.Visible = false
-		
+
 		-- Lock mouse when team is selected
 		if CameraController then
 			CameraController.LockMouse()
 		end
 	end)
-	
+
 	redButton.MouseButton1Click:Connect(function()
 		joinTeamRequest:FireServer("Red")
 		JoinPanel.Visible = false
-		
+
 		-- Lock mouse when team is selected
 		if CameraController then
 			CameraController.LockMouse()
 		end
 	end)
-	
+
 	-- Hide panel when player joins
 	local playerJoined = playerRemotes:WaitForChild("PlayerJoined")
 	playerJoined.OnClientEvent:Connect(function()
@@ -393,7 +393,7 @@ function UIController._ConnectTimerEvents()
 		timerUpdate.OnClientEvent:Connect(function(timeRemaining)
 			UIController._UpdateTimer(timeRemaining)
 		end)
-		
+
 		-- Connect to match ended event
 		local matchEnded = gameRemotes:WaitForChild("MatchEnded", 5)
 		if matchEnded then
@@ -548,16 +548,16 @@ end
 -- Private: Handle match ended
 function UIController._OnMatchEnded(winningTeam, blueScore, redScore)
 	print("[UIController] Match ended! Winner:", winningTeam)
-	
+
 	-- Update final scores
 	CurrentBlueScore = blueScore
 	CurrentRedScore = redScore
 	UIController._UpdateScoreboard()
-	
+
 	-- Determine winner text and color
 	local winnerText = ""
 	local winnerColor = Color3.new(1, 1, 1)
-	
+
 	if winningTeam == "Blue" then
 		winnerText = "🏆 BLUE TEAM WINS! 🏆"
 		winnerColor = Color3.fromRGB(30, 130, 255)
@@ -568,29 +568,30 @@ function UIController._OnMatchEnded(winningTeam, blueScore, redScore)
 		winnerText = "⚖️ DRAW! ⚖️"
 		winnerColor = Color3.fromRGB(255, 215, 0)
 	end
-	
+
 	-- Show match end screen
 	GoalText.TextColor3 = winnerColor
 	GoalText.Text = winnerText
 	SubText.Text = string.format("Final Score: %d - %d", blueScore, redScore)
 	SubText.TextColor3 = Color3.fromRGB(255, 255, 255)
-	
+
 	IntermissionFrame.Visible = true
 	IntermissionFrame.BackgroundTransparency = 0.1
 	GoalText.TextTransparency = 0
 	SubText.TextTransparency = 0
-	
+
 	-- Wait 5 seconds then unlock mouse and show team selection
 	task.wait(5)
-	
+
 	-- Unlock mouse
 	if CameraController then
 		CameraController.UnlockMouse()
+		print("[UIController] Mouse unlocked for team selection")
 	end
-	
+
 	-- Hide match end screen
 	IntermissionFrame.Visible = false
-	
+
 	-- Show team selection panel
 	local teamJoinPanel = ScreenGui:FindFirstChild("TeamJoinPanel")
 	if teamJoinPanel then

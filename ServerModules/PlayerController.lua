@@ -32,12 +32,12 @@ local PlayerJoined = nil
 function PlayerController.Initialize(teamManager, npcManager)
 	TeamManager = teamManager
 	NPCManager = npcManager
-	
+
 	if not TeamManager or not NPCManager then
 		warn("[PlayerController] Missing required managers!")
 		return false
 	end
-	
+
 	-- Create RemoteEvents
 	RemoteFolder = ReplicatedStorage:FindFirstChild("PlayerRemotes")
 	if not RemoteFolder then
@@ -45,26 +45,26 @@ function PlayerController.Initialize(teamManager, npcManager)
 		RemoteFolder.Name = "PlayerRemotes"
 		RemoteFolder.Parent = ReplicatedStorage
 	end
-	
+
 	JoinTeamRequest = Instance.new("RemoteEvent")
 	JoinTeamRequest.Name = "JoinTeamRequest"
 	JoinTeamRequest.Parent = RemoteFolder
-	
+
 	SwitchSlotRequest = Instance.new("RemoteEvent")
 	SwitchSlotRequest.Name = "SwitchSlotRequest"
 	SwitchSlotRequest.Parent = RemoteFolder
-	
+
 	PlayerJoined = Instance.new("RemoteEvent")
 	PlayerJoined.Name = "PlayerJoined"
 	PlayerJoined.Parent = RemoteFolder
-	
+
 	-- Connect events
 	JoinTeamRequest.OnServerEvent:Connect(OnJoinTeamRequest)
 	SwitchSlotRequest.OnServerEvent:Connect(OnSwitchSlotRequest)
-	
+
 	-- Handle player leaving
 	Players.PlayerRemoving:Connect(OnPlayerLeaving)
-	
+
 	print("[PlayerController] Initialized")
 	return true
 end
@@ -76,20 +76,20 @@ function OnJoinTeamRequest(player, requestedTeam)
 		warn(string.format("[PlayerController] %s already on a team!", player.Name))
 		return
 	end
-	
+
 	-- Auto-balance if no team specified
 	local teamName = requestedTeam
 	if not teamName or (teamName ~= "Blue" and teamName ~= "Red") then
 		teamName = TeamManager.GetSmallerTeam()
 	end
-	
+
 	-- Find available slot
 	local slotIndex = FindAvailableSlot(teamName)
 	if not slotIndex then
 		warn(string.format("[PlayerController] No available slots on %s team!", teamName))
 		return
 	end
-	
+
 	-- Assign player to slot
 	AssignPlayerToSlot(player, teamName, slotIndex)
 end
@@ -97,13 +97,13 @@ end
 -- Private: Find an available AI slot on team
 function FindAvailableSlot(teamName)
 	local slots = TeamManager.GetTeamSlots(teamName)
-	
+
 	for i, slot in ipairs(slots) do
 		if slot.IsAI then
 			return i
 		end
 	end
-	
+
 	return nil  -- No available slots
 end
 
@@ -111,27 +111,27 @@ end
 function AssignPlayerToSlot(player, teamName, slotIndex)
 	local slots = TeamManager.GetTeamSlots(teamName)
 	local slot = slots[slotIndex]
-	
+
 	if not slot then
 		warn("[PlayerController] Invalid slot index:", slotIndex)
 		return
 	end
-	
+
 	-- Remove NPC from this slot
 	if slot.NPC and slot.NPC.Parent then
 		slot.NPC:Destroy()
 	end
-	
+
 	-- Update slot data
 	slot.IsAI = false
 	slot.NPC = player.Character
-	
+
 	-- Track player
 	PlayerSlots[player] = {
 		Team = teamName,
 		SlotIndex = slotIndex
 	}
-	
+
 	-- Move player character to slot position
 	if player.Character and slot.HomePosition then
 		local root = player.Character:FindFirstChild("HumanoidRootPart")
@@ -141,10 +141,10 @@ function AssignPlayerToSlot(player, teamName, slotIndex)
 			root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
 		end
 	end
-	
+
 	-- Notify client
 	PlayerJoined:FireClient(player, teamName, slotIndex, slot.HomePosition)
-	
+
 	print(string.format("[PlayerController] %s joined %s team (Slot %d - %s)", 
 		player.Name, teamName, slotIndex, slot.Role or "Unknown"))
 end
@@ -155,22 +155,22 @@ function OnSwitchSlotRequest(player)
 	if not playerData then
 		return  -- Player not on a team
 	end
-	
+
 	-- Find ball position
 	local ball = workspace:FindFirstChild("Ball")
 	if not ball then
 		print("[PlayerController] Ball not found")
 		return
 	end
-	
+
 	local ballPosition = ball.Position
-	
+
 	-- Find AI slot closest to ball
 	local slots = TeamManager.GetTeamSlots(playerData.Team)
 	local currentIndex = playerData.SlotIndex
 	local closestIndex = nil
 	local closestDistance = math.huge
-	
+
 	for i, slot in ipairs(slots) do
 		if slot.IsAI and i ~= currentIndex and slot.NPC then
 			local npcRoot = slot.NPC:FindFirstChild("HumanoidRootPart")
@@ -183,7 +183,7 @@ function OnSwitchSlotRequest(player)
 			end
 		end
 	end
-	
+
 	if closestIndex then
 		SwitchPlayerSlot(player, playerData.Team, closestIndex)
 	else
@@ -195,32 +195,32 @@ end
 function SwitchPlayerSlot(player, teamName, newSlotIndex)
 	local playerData = PlayerSlots[player]
 	if not playerData then return end
-	
+
 	local slots = TeamManager.GetTeamSlots(teamName)
 	local oldSlot = slots[playerData.SlotIndex]
 	local newSlot = slots[newSlotIndex]
-	
+
 	if not newSlot or not newSlot.IsAI then
 		return
 	end
-	
+
 	-- Save current positions for swap
 	local playerRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 	local npcRoot = newSlot.NPC and newSlot.NPC:FindFirstChild("HumanoidRootPart")
-	
+
 	if not playerRoot or not npcRoot then
 		warn("[PlayerController] Missing HumanoidRootPart for swap")
 		return
 	end
-	
+
 	local playerCurrentPosition = playerRoot.Position
 	local npcCurrentPosition = npcRoot.Position
-	
+
 	-- Remove NPC from new slot
 	if newSlot.NPC and newSlot.NPC.Parent then
 		newSlot.NPC:Destroy()
 	end
-	
+
 	-- Spawn NPC back in old slot at player's current position
 	local npcTemplate = game:GetService("ServerStorage"):FindFirstChild("NPCs")
 	if npcTemplate then
@@ -233,24 +233,24 @@ function SwitchPlayerSlot(player, teamName, newSlotIndex)
 			end
 		end
 	end
-	
+
 	-- Update new slot with player
 	newSlot.IsAI = false
 	newSlot.NPC = player.Character
-	
+
 	-- Update tracking
 	PlayerSlots[player].SlotIndex = newSlotIndex
-	
+
 	-- Move player to NPC's old position (swap positions)
 	if playerRoot then
 		playerRoot.CFrame = CFrame.new(npcCurrentPosition)
 		playerRoot.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
 		playerRoot.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
 	end
-	
+
 	-- Notify client
 	PlayerJoined:FireClient(player, teamName, newSlotIndex, newSlot.HomePosition)
-	
+
 	print(string.format("[PlayerController] %s switched to Slot %d - %s (position swap)", 
 		player.Name, newSlotIndex, newSlot.Role or "Unknown"))
 end
@@ -259,11 +259,11 @@ end
 function OnPlayerLeaving(player)
 	local playerData = PlayerSlots[player]
 	if not playerData then return end
-	
+
 	-- Respawn NPC in their slot
 	local slots = TeamManager.GetTeamSlots(playerData.Team)
 	local slot = slots[playerData.SlotIndex]
-	
+
 	if slot then
 		local npcTemplate = game:GetService("ServerStorage"):FindFirstChild("NPCs")
 		if npcTemplate then
@@ -277,10 +277,10 @@ function OnPlayerLeaving(player)
 			end
 		end
 	end
-	
+
 	-- Remove from tracking
 	PlayerSlots[player] = nil
-	
+
 	print(string.format("[PlayerController] %s left - NPC respawned in their slot", player.Name))
 end
 
@@ -341,9 +341,9 @@ function PlayerController.Cleanup()
 	if RemoteFolder then
 		RemoteFolder:Destroy()
 	end
-	
+
 	PlayerSlots = {}
-	
+
 	print("[PlayerController] Cleaned up")
 end
 

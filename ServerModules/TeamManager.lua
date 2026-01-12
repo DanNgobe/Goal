@@ -371,7 +371,7 @@ function TeamManager.ResetAllPositions()
 		warn("[TeamManager] NPCManager or FormationData not available for reset!")
 		return
 	end
-	
+
 	-- First, set both teams to Neutral formation
 	for _, teamName in ipairs({"Blue", "Red"}) do
 		local team = Teams[teamName]
@@ -379,21 +379,21 @@ function TeamManager.ResetAllPositions()
 			team.Formation = "Neutral"
 		end
 	end
-	
+
 	-- Use NPCManager to recalculate positions for Neutral formation
 	for _, teamName in ipairs({"Blue", "Red"}) do
 		local team = Teams[teamName]
 		local slots = team.Slots
-		
+
 		-- Get Neutral formation positions from NPCManager
 		local neutralPositions = NPCManager.RecalculateTeamPositions(teamName, "Neutral")
-		
+
 		for i, slot in ipairs(slots) do
 			if neutralPositions[i] then
 				-- Update home position to Neutral formation position
 				slot.HomePosition = neutralPositions[i].WorldPosition
 			end
-			
+
 			if slot.NPC and slot.NPC.Parent and slot.HomePosition then
 				local root = slot.NPC:FindFirstChild("HumanoidRootPart")
 				local humanoid = slot.NPC:FindFirstChildOfClass("Humanoid")
@@ -434,23 +434,23 @@ end
 function TeamManager.GetSmallerTeam()
 	local bluePlayerCount = 0
 	local redPlayerCount = 0
-	
+
 	-- Count non-AI slots for each team
 	local blueSlots = TeamManager.GetTeamSlots("Blue")
 	local redSlots = TeamManager.GetTeamSlots("Red")
-	
+
 	for _, slot in ipairs(blueSlots) do
 		if not slot.IsAI then
 			bluePlayerCount = bluePlayerCount + 1
 		end
 	end
-	
+
 	for _, slot in ipairs(redSlots) do
 		if not slot.IsAI then
 			redPlayerCount = redPlayerCount + 1
 		end
 	end
-	
+
 	-- Return team with fewer players
 	if bluePlayerCount < redPlayerCount then
 		return "Blue"
@@ -466,7 +466,7 @@ end
 function TeamManager.FreezeTeams(teamNames)
 	-- Update frozen teams array
 	FrozenTeams = teamNames
-	
+
 	for _, teamName in ipairs(teamNames) do
 		local slots = TeamManager.GetTeamSlots(teamName)
 		for _, slot in ipairs(slots) do
@@ -486,7 +486,7 @@ end
 function TeamManager.UnfreezeAllTeams()
 	-- Clear frozen teams array
 	FrozenTeams = {}
-	
+
 	for _, teamName in ipairs({"Blue", "Red"}) do
 		local slots = TeamManager.GetTeamSlots(teamName)
 		for _, slot in ipairs(slots) do
@@ -536,7 +536,7 @@ function TeamManager.OnGoalScored(scoringTeam)
 	-- Setup kickoff: Losing team attacks, winning team (defending) is frozen
 	local defendingTeam = scoringTeam  -- Team that just scored now defends
 	FrozenTeams = {defendingTeam}
-	
+
 	-- Unfreeze everyone, then freeze defending team for kickoff
 	TeamManager.UnfreezeAllTeams()
 	TeamManager.FreezeTeams({defendingTeam})

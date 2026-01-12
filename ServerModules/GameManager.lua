@@ -178,10 +178,25 @@ function GameManager._LoadManagers()
 		"NPCManager",
 		"TeamManager",
 		"BallManager",
-		"AIController",
 		"PlayerController",
 		"MatchTimer"
 	}
+
+	-- Load AI system (new modular structure)
+	local aiCoreModule = ServerModules:FindFirstChild("AI")
+	if aiCoreModule then
+		aiCoreModule = aiCoreModule:FindFirstChild("AICore")
+	end
+	if not aiCoreModule then
+		warn("[GameManager] AI/AICore module not found!")
+		return false
+	end
+	local success, aiCore = pcall(require, aiCoreModule)
+	if not success then
+		warn("[GameManager] Failed to load AICore: " .. tostring(aiCore))
+		return false
+	end
+	Managers.AIController = aiCore  -- Keep same name for compatibility
 
 	for _, managerName in ipairs(managersToLoad) do
 		local moduleScript = ServerModules:FindFirstChild(managerName)
@@ -242,7 +257,7 @@ function GameManager.EndMatch()
 	end
 
 	CurrentState = GameState.Ended
-	
+
 	-- Determine winning team
 	local blueScore = Managers.TeamManager and Managers.TeamManager.GetScore("Blue") or 0
 	local redScore = Managers.TeamManager and Managers.TeamManager.GetScore("Red") or 0
@@ -265,21 +280,21 @@ function GameManager.EndMatch()
 		end
 		matchEnded:FireAllClients(winningTeam, blueScore, redScore)
 	end
-	
+
 	-- Freeze all players
 	if Managers.TeamManager then
 		Managers.TeamManager.FreezeTeams({"Blue", "Red"})
 	end
-	
+
 	-- Reset players: restore NPCs to slots and kill player characters
 	if Managers.PlayerController and Managers.PlayerController.ResetAllPlayersForNewMatch then
 		Managers.PlayerController.ResetAllPlayersForNewMatch()
 	end
-	
+
 	-- Wait for clients to show match end screen (5 seconds as per UIController)
 	-- Players will respawn during this time
 	task.wait(5)
-	
+
 	-- Reset all player/NPC positions similar to goal reset
 	if Managers.TeamManager then
 		Managers.TeamManager.ResetAllPositions()
@@ -287,12 +302,12 @@ function GameManager.EndMatch()
 
 	-- Reset game state (ball to center)
 	GameManager.ResetRound()
-	
+
 	-- Reset scores
 	if Managers.TeamManager then
 		Managers.TeamManager.ResetScores()
 	end
-	
+
 	-- Unfreeze all teams for the new match
 	if Managers.TeamManager then
 		Managers.TeamManager.UnfreezeAllTeams()
@@ -319,7 +334,7 @@ function GameManager.ResetRound()
 	if Managers.BallManager then
 		Managers.BallManager.DetachBall()
 	end
-	
+
 	-- Reset ball to center with zero velocity
 	if WorkspaceRefs.Ball and WorkspaceRefs.Ground then
 		local center = WorkspaceRefs.Ground.Position

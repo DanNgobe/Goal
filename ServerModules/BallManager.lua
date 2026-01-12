@@ -80,8 +80,6 @@ function BallManager.Initialize(ballPart, blueGoal, redGoal, fieldCenter, teamMa
 		warn("[BallManager] Kick sound not found in Ball!")
 	end
 
-	-- Setup collision groups
-	BallManager._SetupCollisionGroups()
 
 	-- Create RemoteEvents
 	RemoteFolder = Instance.new("Folder")
@@ -156,12 +154,6 @@ function BallManager.ResetBallToCenter()
 	print("[BallManager] Ball reset to center")
 end
 
--- Private: Setup collision groups for the ball
-function BallManager._SetupCollisionGroups()
-	if Ball then
-		Ball.CollisionGroup = "Ball"
-	end
-end
 
 -- Private: Attach ball to character
 local function AttachBallToCharacter(character, rootPart)
@@ -300,8 +292,8 @@ end
 
 -- Check if a character can take possession
 function BallManager.CanTakePossession(character)
-	-- Ball is flying
-	if Ball:FindFirstChildOfClass("BodyVelocity") then
+	-- Ball is flying or moving too fast
+	if Ball:FindFirstChildOfClass("BodyVelocity") or Ball.AssemblyLinearVelocity.Magnitude > 20 then
 		return false
 	end
 
@@ -325,34 +317,13 @@ function BallManager.DetachBall()
 	DetachBall()
 end
 
--- Private: Choose kick animation based on direction and power
-local function ChooseKickAnimation(rootPart, direction, power, kickType)
-	-- Determine if ball is going left or right relative to character
-	local characterRight = rootPart.CFrame.RightVector
-	local dotRight = characterRight:Dot(direction)
-
-	-- Determine if it's a pass (low power) or strike (high power)
-	local isStrike = power > 0.85 or kickType == "Air"
-
-	if isStrike then
-		-- Strike animations (powerful shots)
-		if dotRight > 0 then
-			return "rbxassetid://76069154190283"  -- Strike Right Kick
-		else
-			return "rbxassetid://108579500601701" -- Strike Left Kick
-		end
-	else
-		-- Pass animations (lower power passes)
-		if dotRight > 0 then
-			return "rbxassetid://133927349049921" -- Pass Right Kick
-		else
-			return "rbxassetid://99205226261734"  -- Pass Left Kick
-		end
-	end
-end
-
-
 -- Kick the ball (called by players via remote or by AI directly)
+-- Note: Animation should be played BEFORE calling this function
+-- - For players: animation played on client
+-- - For NPCs: animation played by AIController
+-- Note: Animation should be played BEFORE calling this function
+-- - For players: animation played on client
+-- - For NPCs: animation played by AIController
 function BallManager.KickBall(character, kickType, power, direction)
 	if CurrentOwnerCharacter ~= character then
 		return false
@@ -364,8 +335,7 @@ function BallManager.KickBall(character, kickType, power, direction)
 	end
 
 	local rootPart = character:FindFirstChild("HumanoidRootPart")
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not rootPart or not humanoid then
+	if not rootPart then
 		DetachBall()
 		return false
 	end
@@ -381,45 +351,22 @@ function BallManager.KickBall(character, kickType, power, direction)
 		direction = direction.Unit
 	end
 
-	-- Stop the character and play animation
-	local originalWalkSpeed = humanoid.WalkSpeed
-	humanoid.WalkSpeed = 0
-	rootPart.Anchored = true
-
-	-- Choose kick animation based on direction and power
-	local kickAnimationId = ChooseKickAnimation(rootPart, direction, power, kickType)
-
-	local animator = humanoid:FindFirstChildOfClass("Animator")
-	if not animator then
-		animator = Instance.new("Animator")
-		animator.Parent = humanoid
-	end
-
-	local kickAnimation = Instance.new("Animation")
-	kickAnimation.AnimationId = kickAnimationId
-	local animTrack : AnimationTrack = animator:LoadAnimation(kickAnimation)
-	animTrack:Play()
-
-	-- Detach ball
-	DetachBall()
-
-	-- Calculate kick force
+	-- Calculate kick force first
 	local maxPower = kickType == "Ground" and Settings.Ground_Kick_Max or Settings.Air_Kick_Max
 	local maxHeight = kickType == "Ground" and Settings.Ground_Kick_Height or Settings.Air_Kick_Height
 	local force = maxPower * powerCurve * 1.5
 	local height = maxHeight * powerCurve
 
-	-- Restore character movement after animation
-	task.spawn(function()
-		task.wait(animTrack.Length)
-		if rootPart and humanoid then
-			rootPart.Anchored = false
-			humanoid.WalkSpeed = originalWalkSpeed
-			animTrack:Stop()
-		end
-	end)
+	-- Detach ball and position it away from character
+	DetachBall()
+	
+	-- Position ball slightly in front of character to prevent drag
+	Ball.CFrame = CFrame.new(rootPart.Position + (direction * 3) + Vector3.new(0, -2, 0))
+	Ball.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+	Ball.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
 
-	task.wait(0.3)
+	-- Small delay for animation timing and physics cleanup
+	task.wait(0.2)
 
 	-- Apply velocity
 	local velocity = Instance.new("BodyVelocity")
@@ -439,8 +386,8 @@ end
 -- Private: Setup touch detection
 function BallManager._SetupTouchDetection()
 	TouchConnection = Ball.Touched:Connect(function(part)
-		-- Don't allow attachment if ball is flying
-		if Ball:FindFirstChildOfClass("BodyVelocity") then
+		-- Don't allow attachment if ball is flying or moving fast
+		if Ball:FindFirstChildOfClass("BodyVelocity") or Ball.AssemblyLinearVelocity.Magnitude > 20 then
 			return
 		end
 

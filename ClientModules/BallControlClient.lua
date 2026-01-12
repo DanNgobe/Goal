@@ -15,6 +15,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
+-- Modules
+local AnimationData = require(ReplicatedStorage:WaitForChild("AnimationData"))
+
 -- Private variables
 local Player = Players.LocalPlayer
 local Character = nil
@@ -274,6 +277,47 @@ function GetKickDirection()
 end
 
 --------------------------------------------------------------------------------
+-- ANIMATION
+--------------------------------------------------------------------------------
+
+-- Play kick animation for player
+local function PlayKickAnimation(kickType, power, direction)
+	if not Character or not Humanoid or not RootPart then
+		return
+	end
+
+	-- Choose appropriate animation
+	local animId = AnimationData.ChooseKickAnimation(RootPart, direction, power, kickType)
+
+	-- Stop character movement
+	local originalWalkSpeed = Humanoid.WalkSpeed
+	Humanoid.WalkSpeed = 0
+	RootPart.Anchored = true
+
+	-- Load and play animation
+	local animator = Humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = Humanoid
+	end
+
+	local kickAnimation = Instance.new("Animation")
+	kickAnimation.AnimationId = animId
+	local animTrack = animator:LoadAnimation(kickAnimation)
+	animTrack:Play()
+
+	-- Restore movement after animation
+	task.spawn(function()
+		task.wait(animTrack.Length)
+		if RootPart and Humanoid then
+			RootPart.Anchored = false
+			Humanoid.WalkSpeed = originalWalkSpeed
+			animTrack:Stop()
+		end
+	end)
+end
+
+--------------------------------------------------------------------------------
 -- KICK ACTIONS
 --------------------------------------------------------------------------------
 
@@ -299,6 +343,11 @@ function ReleaseGroundKick()
 		local direction = GetKickDirection()
 
 		print(string.format("[BallControlClient] Ground kick: Power=%.2f, Direction=%s", power, tostring(direction)))
+
+		-- Play animation instantly on client
+		PlayKickAnimation("Ground", power, direction)
+
+		-- Send kick request to server
 		KickBall:FireServer("Ground", power, direction)
 	end
 end
@@ -325,6 +374,11 @@ function ReleaseAirKick()
 		local direction = GetKickDirection()
 
 		print(string.format("[BallControlClient] Air kick: Power=%.2f, Direction=%s", power, tostring(direction)))
+
+		-- Play animation instantly on client
+		PlayKickAnimation("Air", power, direction)
+
+		-- Send kick request to server
 		KickBall:FireServer("Air", power, direction)
 	end
 end

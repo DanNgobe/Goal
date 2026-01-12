@@ -20,10 +20,10 @@ local BallControlClient = nil
 function InputHandler.Initialize(ballControlClient)
 	-- Store reference to BallControlClient
 	BallControlClient = ballControlClient
-	
+
 	-- Connect to input
 	UserInputService.InputBegan:Connect(OnInputBegan)
-	
+
 	print("[InputHandler] Initialized")
 	return true
 end
@@ -31,7 +31,7 @@ end
 -- Private: Handle input
 function OnInputBegan(input, gameProcessed)
 	if gameProcessed then return end
-	
+
 	if input.KeyCode == Enum.KeyCode.C then
 		-- Request slot switch
 		RequestSlotSwitch()
@@ -41,15 +41,15 @@ end
 -- Private: Request slot switch from server
 function RequestSlotSwitch()
 	if IsProcessing then return end
-	
+
 	-- Don't allow switching if player has the ball
 	if BallControlClient and BallControlClient.HasBall() then
 		print("[InputHandler] Cannot switch - you have the ball!")
 		return
 	end
-	
+
 	IsProcessing = true
-	
+
 	local playerRemotes = ReplicatedStorage:FindFirstChild("PlayerRemotes")
 	if playerRemotes then
 		local switchSlotRequest = playerRemotes:FindFirstChild("SwitchSlotRequest")
@@ -57,7 +57,7 @@ function RequestSlotSwitch()
 			switchSlotRequest:FireServer()
 		end
 	end
-	
+
 	-- Cooldown
 	task.wait(0.5)
 	IsProcessing = false
