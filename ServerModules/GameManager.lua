@@ -118,9 +118,7 @@ function GameManager.Initialize()
 		return false
 	end
 	Managers.MatchTimer.Start()
-
-	print(string.format("[GameManager] Spawned %d Blue + %d Red NPCs", #blueNPCs, #redNPCs))
-
+	
 	CurrentState = GameState.Playing
 	return true
 end

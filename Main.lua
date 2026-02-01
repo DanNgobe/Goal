@@ -23,7 +23,7 @@ print("============================================")
 -- ============================================
 local function SetupCollisionGroups()
 	local PhysicsService = game:GetService("PhysicsService")
-	
+
 	-- Register collision groups
 	pcall(function()
 		if not PhysicsService:IsCollisionGroupRegistered("Players") then
@@ -35,30 +35,19 @@ local function SetupCollisionGroups()
 			PhysicsService:RegisterCollisionGroup("NPCs")
 		end
 	end)
-	pcall(function()
-		if not PhysicsService:IsCollisionGroupRegistered("Ball") then
-			PhysicsService:RegisterCollisionGroup("Ball")
-		end
-	end)
-	
+
 	-- Set collision rules
 	pcall(function()
 		-- Players and NPCs don't collide with each other
 		PhysicsService:CollisionGroupSetCollidable("Players", "Players", false)
 		PhysicsService:CollisionGroupSetCollidable("NPCs", "NPCs", false)
 		PhysicsService:CollisionGroupSetCollidable("Players", "NPCs", false)
-		
-		-- Ball doesn't collide with Players or NPCs
-		PhysicsService:CollisionGroupSetCollidable("Ball", "Players", false)
-		PhysicsService:CollisionGroupSetCollidable("Ball", "NPCs", false)
-		
+
 		-- All groups can collide with Default (ground, goals, walls, etc.)
 		PhysicsService:CollisionGroupSetCollidable("Players", "Default", true)
 		PhysicsService:CollisionGroupSetCollidable("NPCs", "Default", true)
-		PhysicsService:CollisionGroupSetCollidable("Ball", "Default", true)
 	end)
-	
-	print("[Main] ✓ Collision groups configured")
+
 end
 
 -- Setup collision groups before initializing game systems
@@ -80,8 +69,6 @@ local GameManager = require(ServerModules:WaitForChild("GameManager"))
 -- Initialize the game
 local success = GameManager.Initialize()
 
-if success then
-	print(string.format("[Main] ✓ Game ready - %dv%d mode", TEAM_SIZE, TEAM_SIZE))
-else
+if not success then
 	warn("[Main] ✗ Initialization failed!")
 end

@@ -96,7 +96,6 @@ function BallControlClient.Initialize()
 		ConnectCharacter()
 	end)
 
-	print("[BallControlClient] Initialized")
 	return true
 end
 
@@ -199,8 +198,6 @@ function ConnectCharacter()
 
 	Humanoid = Character:WaitForChild("Humanoid")
 	RootPart = Character:WaitForChild("HumanoidRootPart")
-
-	print("[BallControlClient] Character connected")
 end
 
 function SetupInput()
@@ -329,7 +326,6 @@ function StartGroundKick()
 	ChargeFrame.Visible = true
 	ChargeLabel.Text = "GROUND KICK"
 
-	print("[BallControlClient] Started ground kick charge")
 end
 
 function ReleaseGroundKick()
@@ -341,8 +337,6 @@ function ReleaseGroundKick()
 	if HasBall and Character and RootPart then
 		local power = GetChargePower()
 		local direction = GetKickDirection()
-
-		print(string.format("[BallControlClient] Ground kick: Power=%.2f, Direction=%s", power, tostring(direction)))
 
 		-- Play animation instantly on client
 		PlayKickAnimation("Ground", power, direction)
@@ -360,7 +354,6 @@ function StartAirKick()
 	ChargeFrame.Visible = true
 	ChargeLabel.Text = "AIR KICK"
 
-	print("[BallControlClient] Started air kick charge")
 end
 
 function ReleaseAirKick()
@@ -372,8 +365,6 @@ function ReleaseAirKick()
 	if HasBall and Character and RootPart then
 		local power = GetChargePower()
 		local direction = GetKickDirection()
-
-		print(string.format("[BallControlClient] Air kick: Power=%.2f, Direction=%s", power, tostring(direction)))
 
 		-- Play animation instantly on client
 		PlayKickAnimation("Air", power, direction)
@@ -401,7 +392,6 @@ function OnPossessionChanged(hasBall)
 		ChargeFrame.Visible = false
 	end
 
-	print("[BallControlClient] Possession changed: " .. tostring(hasBall))
 end
 
 --------------------------------------------------------------------------------

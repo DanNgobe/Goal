@@ -52,7 +52,6 @@ function UIController.Initialize(cameraController)
 	-- Connect to timer events
 	UIController._ConnectTimerEvents()
 
-	print("[UIController] UI initialized")
 	return true
 end
 
@@ -586,7 +585,6 @@ function UIController._OnMatchEnded(winningTeam, blueScore, redScore)
 	-- Unlock mouse
 	if CameraController then
 		CameraController.UnlockMouse()
-		print("[UIController] Mouse unlocked for team selection")
 	end
 
 	-- Hide match end screen

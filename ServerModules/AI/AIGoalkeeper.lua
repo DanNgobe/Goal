@@ -23,9 +23,10 @@ local BallManager = nil
 local State = {
 	LastSaveAttempt = {},
 	HasBall = {},
-	LastDistribution = {},
+	DistributionDelay = {},
 	ActiveGKs = {},
-	HeartbeatConnection = nil
+	HeartbeatConnection = nil,
+	InterceptMarkers = {}  -- Debug markers for intercept prediction
 }
 
 -- Configuration
@@ -35,16 +36,26 @@ local Config = {
 	},
 
 	Actions = {
-		DiveRange = 20,          -- Max distance to attempt dive (react early)
-		CatchRange = 12,         -- Max distance to catch
-		ScoopRange = 8,          -- Max distance to scoop
-		RushOutDistance = 25,    -- Distance to consider rushing out
-		RushOutSpeed = 22
+		ReactionDistance = 35,   -- Distance to start reacting to ball
+		AnimationTriggerDistance = 25, -- Distance to trigger save animations
+		WalkToBallDistance = 30, -- Distance to walk to slow balls
+		DiveLateralDistance = 16, -- Lateral distance threshold for dive
+		DiveSpeedThreshold = 30, -- Ball speed threshold for dive
+		WalkSpeedThreshold = 25, -- Ball speed threshold for walking
+		RushOutDistance = 40,    -- Distance to consider rushing out (increased)
+		RushOutSpeed = 24
+	},
+
+	Heights = {
+		Scoop = -2,              -- Below this triggers scoop
+		Standing = 3,            -- Below this triggers standing catch
+		Jump = 6                 -- Above this triggers jump catch
 	},
 
 	Timing = {
-		SaveCooldown = 0.3,      -- Time between save attempts (faster reaction)
-		DistributionDelay = 1.5  -- Time to hold ball before distributing
+		SaveCooldown = 1.5,      -- Time between save attempts
+		DistributionDelay = 1, -- Time to hold ball before distributing
+		AnticipationSpeed = 25   -- Speed for anticipation movement
 	},
 
 	Speed = {
@@ -68,6 +79,24 @@ function AIGoalkeeper.Initialize(teamManager, ballManager)
 	State.HeartbeatConnection = game:GetService("RunService").Heartbeat:Connect(UpdateRotations)
 
 	return TeamManager ~= nil and BallManager ~= nil
+end
+
+--------------------------------------------------------------------------------
+-- INTERCEPT PREDICTION
+--------------------------------------------------------------------------------
+
+-- Predict where the ball will cross the goal plane
+function PredictIntercept(ballPos, ballVel, goalPlaneZ)
+	if math.abs(ballVel.Z) < 0.1 then
+		return nil
+	end
+
+	local t = (goalPlaneZ - ballPos.Z) / ballVel.Z
+	if t <= 0 then
+		return nil
+	end
+
+	return ballPos + ballVel * t
 end
 
 --------------------------------------------------------------------------------
@@ -129,11 +158,37 @@ function AIGoalkeeper.UpdateGoalkeeper(slot, teamName)
 	local ballPos = ball.Position
 	local distToBall = (ballPos - root.Position).Magnitude
 
-	-- Try to save/catch if ball is close
-	if distToBall <= Config.Actions.DiveRange then
-		if TrySave(npc, humanoid, root, ball, npcId) then
+	-- Intercept prediction for anticipation
+	local intercept = PredictIntercept(ballPos, ball.AssemblyLinearVelocity, slot.HomePosition.Z)
+
+	-- Handle ball right in front of keeper (close distance)
+	if distToBall <= Config.Actions.WalkToBallDistance then
+		local ballSpeed = ball.AssemblyLinearVelocity.Magnitude
+
+		-- If ball is slow or stationary, walk to it
+		if ballSpeed < Config.Actions.WalkSpeedThreshold then
+			humanoid.WalkSpeed = Config.Speed.Normal
+			MoveToPosition(humanoid, root, ballPos)
 			return
 		end
+	end
+
+	-- Try to save/catch if ball is close
+	if distToBall <= Config.Actions.AnimationTriggerDistance then
+		if TrySave(npc, humanoid, root, ball, slot.HomePosition, npcId) then
+			return
+		end
+	end
+
+	-- Anticipation movement if ball is approaching
+	if intercept and distToBall <= Config.Actions.ReactionDistance then
+		-- Move towards predicted intercept point laterally
+		local currentPos = root.Position
+		local targetPos = Vector3.new(intercept.X, currentPos.Y, currentPos.Z)
+
+		humanoid.WalkSpeed = Config.Speed.Positioning
+		MoveToPosition(humanoid, root, targetPos)
+		return
 	end
 
 	-- Decide: Rush out or position at home with lateral adjustment
@@ -177,7 +232,7 @@ end
 -- 2. DIVING TO SAVE SHOTS
 --------------------------------------------------------------------------------
 
-function TrySave(npc, humanoid, root, ball, npcId)
+function TrySave(npc, humanoid, root, ball, homePos, npcId)
 	local now = tick()
 	local lastSave = State.LastSaveAttempt[npcId] or 0
 
@@ -187,72 +242,49 @@ function TrySave(npc, humanoid, root, ball, npcId)
 	end
 
 	local ballPos = ball.Position
-	local distToBall = (ballPos - root.Position).Magnitude
+	local ballVel = ball.AssemblyLinearVelocity
+	local speed = ballVel.Magnitude
 
-	-- Check if ball is moving towards goalkeeper (velocity check)
-	local ballVelocity = ball.AssemblyLinearVelocity
-	if ballVelocity.Magnitude < 15 then
-		-- Ball is too slow, don't attempt dramatic saves
+	-- Predict intercept point
+	local intercept = PredictIntercept(ballPos, ballVel, homePos.Z)
+	if not intercept then
 		return false
 	end
 
-	-- Check if ball is moving towards us (more lenient angle)
-	local ballToGK = (root.Position - ballPos).Unit
-	local velocityDot = ballToGK:Dot(ballVelocity.Unit)
-	if velocityDot < 0.1 then
-		-- Ball not moving towards us
-		return false
-	end
+	-- Use intercept for calculations
+	local relative = root.CFrame:PointToObjectSpace(intercept)
+	local dx = relative.X
+	local dy = intercept.Y - root.Position.Y
 
-	-- Determine save type based on distance and height
-	-- Character height ~11, goal height ~15
-	local heightDiff = ballPos.Y - root.Position.Y
 	local saveType = nil
 	local animId = nil
 
-	if distToBall <= Config.Actions.ScoopRange and heightDiff < 2 then
-		-- Scoop low balls (at feet or ground)
-		saveType = "Scoop"
-		animId = AnimationData.Goalkeeper.Scoop
-	elseif distToBall <= Config.Actions.CatchRange then
-		if heightDiff > 5 then
-			-- Jump to catch high balls (above head height)
-			saveType = "JumpCatch"
-			animId = AnimationData.Goalkeeper.Jump_Catch
-		else
-			-- Standing catch for chest/waist height
-			saveType = "StandingCatch"
-			animId = AnimationData.Goalkeeper.Standing_Catch
-		end
-	elseif distToBall <= Config.Actions.DiveRange then
-		-- Dive left or right
-		local dirToBall = (ballPos - root.Position).Unit
-		local characterRight = root.CFrame.RightVector
-		local dotRight = characterRight:Dot(dirToBall)
-
-		if dotRight > 0 then
+	-- Check for dive based on lateral distance and speed
+	if math.abs(dx) > Config.Actions.DiveLateralDistance and speed > Config.Actions.DiveSpeedThreshold then
+		if dx < 0 then
 			saveType = "DiveRight"
 			animId = AnimationData.Goalkeeper.Right_Diving_Save
 		else
 			saveType = "DiveLeft"
 			animId = AnimationData.Goalkeeper.Left_Diving_Save
 		end
+	elseif dy < Config.Heights.Scoop then
+		-- Low ball - scoop
+		saveType = "Scoop"
+		animId = AnimationData.Goalkeeper.Scoop
+	elseif dy < Config.Heights.Standing then
+		-- Mid height - standing catch
+		saveType = "StandingCatch"
+		animId = AnimationData.Goalkeeper.Standing_Catch
+	elseif dy > Config.Heights.Jump then
+		-- High ball - jump catch
+		saveType = "JumpCatch"
+		animId = AnimationData.Goalkeeper.Jump_Catch
 	end
 
 	if saveType and animId then
 		State.LastSaveAttempt[npcId] = now
-		PlayGoalkeeperAnimation(npc, humanoid, root, animId)
-
-		-- Attempt to catch the ball
-		task.delay(0.2, function()
-			if ball and ball.Parent and BallManager then
-				local currentDist = (ball.Position - root.Position).Magnitude
-				if currentDist <= Config.Actions.CatchRange then
-					BallManager.SetOwner(npc)
-				end
-			end
-		end)
-
+		PlayGoalkeeperAnimation(npc, humanoid, root, animId, 0.4)
 		return true
 	end
 
@@ -271,10 +303,12 @@ end
 
 function HandleDistribution(npc, humanoid, root, teamName, npcId)
 	local now = tick()
-	local lastDist = State.LastDistribution[npcId] or now
+	local delayStart = State.DistributionDelay[npcId]
 
-	-- Wait a bit before distributing
-	if now - lastDist < Config.Timing.DistributionDelay then
+	if not delayStart then
+		State.DistributionDelay[npcId] = now
+		return
+	elseif now - delayStart < Config.Timing.DistributionDelay then 
 		humanoid:MoveTo(root.Position)
 		return
 	end
@@ -283,7 +317,7 @@ function HandleDistribution(npc, humanoid, root, teamName, npcId)
 	local bestTarget = FindDistributionTarget(npc, root, teamName)
 
 	if bestTarget then
-		State.LastDistribution[npcId] = now
+		State.DistributionDelay[npcId] = nil
 
 		-- Face the target
 		local dir = (bestTarget.Position - root.Position).Unit
@@ -292,15 +326,15 @@ function HandleDistribution(npc, humanoid, root, teamName, npcId)
 		-- Choose distribution method based on distance
 		if bestTarget.Distance > 40 then
 			-- Long kick
-			PlayGoalkeeperAnimation(npc, humanoid, root, AnimationData.Goalkeeper.Place_And_Kick)
-			task.delay(0.5, function()
+			AIUtils.PlayNPCKickAnimation(npc, root, dir, 0.9, "Air")
+			task.delay(0.3, function()
 				if BallManager then
 					BallManager.KickBall(npc, "Air", 0.9, dir)
 				end
 			end)
 		else
 			-- Throw
-			PlayGoalkeeperAnimation(npc, humanoid, root, AnimationData.Goalkeeper.Throw)
+			AIUtils.PlayNPCKickAnimation(npc, root, dir, 0.5, "Ground")
 			task.delay(0.3, function()
 				if BallManager then
 					BallManager.KickBall(npc, "Ground", 0.5, dir)
@@ -404,7 +438,7 @@ end
 -- ANIMATION HELPER
 --------------------------------------------------------------------------------
 
-function PlayGoalkeeperAnimation(npc, humanoid, root, animId)
+function PlayGoalkeeperAnimation(npc, humanoid, root, animId, maxSeconds)
 	local originalWalkSpeed = humanoid.WalkSpeed
 	humanoid.WalkSpeed = 0
 	root.Anchored = true
@@ -424,7 +458,11 @@ function PlayGoalkeeperAnimation(npc, humanoid, root, animId)
 	animTrack:Play()
 
 	task.spawn(function()
-		task.wait(animTrack.Length)
+		local maxTime = animTrack.Length
+		if maxSeconds  then
+			maxTime = math.min(maxTime, maxSeconds)
+		end
+		task.wait(maxTime)
 		if animTrack and animTrack.IsPlaying then
 			animTrack:Stop()
 		end
@@ -449,7 +487,7 @@ function AIGoalkeeper.Cleanup()
 
 	State.LastSaveAttempt = {}
 	State.HasBall = {}
-	State.LastDistribution = {}
+	State.DistributionDelay = {}
 	State.ActiveGKs = {}
 end
 

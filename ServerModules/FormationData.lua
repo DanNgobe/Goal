@@ -179,7 +179,6 @@ function FormationData.SetTeamSize(size)
 		return false
 	end
 	Config.TeamSize = size
-	print("[FormationData] Team size is 5v5")
 	return true
 end
 

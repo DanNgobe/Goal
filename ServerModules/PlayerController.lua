@@ -65,7 +65,6 @@ function PlayerController.Initialize(teamManager, npcManager)
 	-- Handle player leaving
 	Players.PlayerRemoving:Connect(OnPlayerLeaving)
 
-	print("[PlayerController] Initialized")
 	return true
 end
 
@@ -144,9 +143,6 @@ function AssignPlayerToSlot(player, teamName, slotIndex)
 
 	-- Notify client
 	PlayerJoined:FireClient(player, teamName, slotIndex, slot.HomePosition)
-
-	print(string.format("[PlayerController] %s joined %s team (Slot %d - %s)", 
-		player.Name, teamName, slotIndex, slot.Role or "Unknown"))
 end
 
 -- Private: Handle slot switch request
@@ -250,9 +246,6 @@ function SwitchPlayerSlot(player, teamName, newSlotIndex)
 
 	-- Notify client
 	PlayerJoined:FireClient(player, teamName, newSlotIndex, newSlot.HomePosition)
-
-	print(string.format("[PlayerController] %s switched to Slot %d - %s (position swap)", 
-		player.Name, newSlotIndex, newSlot.Role or "Unknown"))
 end
 
 -- Private: Handle player leaving
@@ -280,8 +273,6 @@ function OnPlayerLeaving(player)
 
 	-- Remove from tracking
 	PlayerSlots[player] = nil
-
-	print(string.format("[PlayerController] %s left - NPC respawned in their slot", player.Name))
 end
 
 -- Public: Get player's team

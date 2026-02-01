@@ -26,7 +26,7 @@ local State = {
 
 -- Configuration
 local Config = {
-	RoleUpdateInterval = 0.3,
+	RoleUpdateInterval = 0.5,
 	BallChaseDistance = 100
 }
 
@@ -131,35 +131,47 @@ function AssignBallRoles(teamName, ballPos, ballOwner)
 
 	local slots = TeamManager.GetAISlots(teamName)
 	local roles = State.BallRoles[teamName]
-	local distances = {}
+	local candidates = {}
 
 	for _, slot in ipairs(slots) do
 		local npc = slot.NPC
 		if npc and npc.Parent then
 			local root = npc:FindFirstChild("HumanoidRootPart")
 			if root then
-				local dist = (ballPos - root.Position).Magnitude
-				if dist <= Config.BallChaseDistance then
-					table.insert(distances, {Slot = slot, Distance = dist})
+				local distToBall = (ballPos - root.Position).Magnitude
+				local distFromHome = slot.HomePosition and (slot.HomePosition - root.Position).Magnitude or 0
+
+				-- Calculate a weighted score: lower is better
+				-- Penalize being far from home position
+				local score = distToBall + (distFromHome * 0.3)
+
+				if distToBall <= Config.BallChaseDistance then
+					table.insert(candidates, {
+						Slot = slot, 
+						DistanceToBall = distToBall,
+						DistanceFromHome = distFromHome,
+						Score = score
+					})
 				end
 			end
 		end
 	end
 
-	table.sort(distances, function(a, b) return a.Distance < b.Distance end)
+	-- Sort by score (lower is better - closer to ball and closer to home)
+	table.sort(candidates, function(a, b) return a.Score < b.Score end)
 
 	roles.Chaser = nil
 	roles.Supporters = {}
 
-	if #distances > 0 then
+	if #candidates > 0 then
 		-- Only assign chaser if no teammate has the ball
 		if not ballOwner or not AIUtils.IsTeammate(ballOwner, teamName) then
-			roles.Chaser = distances[1].Slot
+			roles.Chaser = candidates[1].Slot
 		end
 
-		-- Assign supporters (2nd and 3rd closest)
-		for i = 2, math.min(3, #distances) do
-			table.insert(roles.Supporters, distances[i].Slot)
+		-- Assign supporters (2nd and 3rd closest by score)
+		for i = 2, math.min(3, #candidates) do
+			table.insert(roles.Supporters, candidates[i].Slot)
 		end
 	end
 end

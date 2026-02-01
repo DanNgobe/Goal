@@ -49,7 +49,7 @@ local Config = {
 
 	FormationWeight = {
 		Support = 0.5,
-		Formation = 0.5
+		Formation = 0.6
 	},
 
 	PassCooldown = 1.5,
@@ -129,15 +129,18 @@ function HandleRoleBasedBehavior(slot, npc, humanoid, root, teamName, role)
 
 	-- Defensive behavior against opponent with ball
 	if ballOwner and not AIUtils.IsTeammate(ballOwner, teamName) then
-		if role == "Chaser" then
-			humanoid.WalkSpeed = Config.Speed.Intercept
-			MoveWithAvoidance(humanoid, root, ballOwner:FindFirstChild("HumanoidRootPart").Position, teamName, npc)
-			return
-		elseif role == "Support" then
-			local target = AIUtils.CalculateInterceptPosition(root.Position, slot.HomePosition, ballOwner)
-			humanoid.WalkSpeed = Config.Speed.Support
-			MoveWithAvoidance(humanoid, root, target, teamName, npc)
-			return
+		local ballOwnerRoot = ballOwner:FindFirstChild("HumanoidRootPart")
+		if ballOwnerRoot then
+			if role == "Chaser" then
+				humanoid.WalkSpeed = Config.Speed.Intercept
+				MoveWithAvoidance(humanoid, root, ballOwnerRoot.Position, teamName, npc)
+				return
+			elseif role == "Support" then
+				local target = AIUtils.CalculateInterceptPosition(root.Position, slot.HomePosition, ballOwner)
+				humanoid.WalkSpeed = Config.Speed.Support
+				MoveWithAvoidance(humanoid, root, target, teamName, npc)
+				return
+			end
 		end
 	end
 
@@ -446,9 +449,9 @@ function FaceDirection(root, direction, alpha)
 	alpha = alpha or 0.2
 	local newLook = (flatCurrent:Lerp(flatTarget, alpha)).Unit
 	local newCFrame = CFrame.lookAt(root.Position, root.Position + newLook)
-	
+
 	root.CFrame = newCFrame
-	
+
 	-- Also update BodyGyro if it exists to prevent it from overriding the rotation
 	local bodyGyro = root:FindFirstChild("AIBodyGyro")
 	if bodyGyro then

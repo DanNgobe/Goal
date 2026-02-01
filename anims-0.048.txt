@@ -7,6 +7,7 @@ Goalkeeper Right Diving Save -  rbxassetid://118774312513760
 Goalkeeper Scoop -  rbxassetid://90457004291903
 Goalkeeper Standing Catch -  rbxassetid://110067978291476
 Goalkeeper Trow -  rbxassetid://135849061306619
+Goalkeeper Idle (With ball) - rbxassetid://92162025465133
 Jump -  rbxassetid://127586004923181
 Offensive Idle -  rbxassetid://99972725424538
 Pass Left Kick -  rbxassetid://99205226261734

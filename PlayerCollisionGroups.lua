@@ -19,8 +19,6 @@ local function SetupPlayerCollisions(character)
 			end)
 		end
 	end
-
-	print(string.format("[PlayerSetup] Set collision group for %s", character.Name))
 end
 
 -- Connect to all players
@@ -45,5 +43,3 @@ for _, player in ipairs(Players:GetPlayers()) do
 		SetupPlayerCollisions(character)
 	end)
 end
-
-print("[PlayerSetup] Player collision system initialized")

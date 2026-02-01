@@ -86,7 +86,6 @@ function TeamManager.Initialize(blueGoal, redGoal, npcManager, formationData)
 	FrozenTeams = {"Red"}
 	TeamManager.FreezeTeams({"Red"})
 
-	print("[TeamManager] Initialized - Red frozen for kickoff")
 	return true
 end
 
@@ -347,7 +346,6 @@ function TeamManager.AddScore(teamName, points)
 	if not team then return false end
 
 	team.Score = team.Score + (points or 1)
-	print(string.format("[TeamManager] %s team score: %d", teamName, team.Score))
 
 	return true
 end
@@ -407,7 +405,6 @@ function TeamManager.ResetAllPositions()
 			end
 		end
 	end
-	print("[TeamManager] Reset all positions to Neutral formation")
 end
 
 -- Get all players on a team
@@ -479,7 +476,6 @@ function TeamManager.FreezeTeams(teamNames)
 			end
 		end
 	end
-	print(string.format("[TeamManager] Frozen: %s", table.concat(teamNames, ", ")))
 end
 
 -- Unfreeze all teams (restore movement)
@@ -498,7 +494,6 @@ function TeamManager.UnfreezeAllTeams()
 			end
 		end
 	end
-	print("[TeamManager] All teams unfrozen")
 end
 
 -- Handle goal scored
@@ -521,8 +516,6 @@ function TeamManager.OnGoalScored(scoringTeam)
 		GoalScored:FireAllClients(scoringTeam, blueScore, redScore)
 	end
 
-	print(string.format("[TeamManager] GOAL! %s scored! Score: Blue %d - Red %d", 
-		scoringTeam, blueScore, redScore))
 
 	-- Reset all positions (players and NPCs)
 	TeamManager.ResetAllPositions()
@@ -550,7 +543,6 @@ function TeamManager.OnBallTouched()
 	if #FrozenTeams > 0 and not IsProcessingGoal then
 		FrozenTeams = {}
 		TeamManager.UnfreezeAllTeams()
-		print("[TeamManager] Kickoff complete - play started!")
 	end
 end
 
@@ -581,7 +573,6 @@ function TeamManager.StartKickoff(attackingTeam)
 	local defendingTeam = (attackingTeam == "Blue") and "Red" or "Blue"
 	FrozenTeams = {defendingTeam}
 	TeamManager.FreezeTeams({defendingTeam})
-	print(string.format("[TeamManager] Kickoff started - %s attacking, %s frozen", attackingTeam, defendingTeam))
 end
 
 -- Cleanup (for testing)

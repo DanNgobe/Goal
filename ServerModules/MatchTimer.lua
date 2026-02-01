@@ -52,7 +52,6 @@ function MatchTimer.Initialize(gameManager, duration)
 		MatchEnded.Parent = RemoteFolder
 	end
 
-	print("[MatchTimer] Initialized")
 	return true
 end
 
@@ -92,7 +91,6 @@ function MatchTimer.Start()
 	-- Send initial time
 	TimerUpdate:FireAllClients(TimeRemaining)
 
-	print("[MatchTimer] Timer started - " .. MatchDuration .. " seconds")
 end
 
 -- Stop the timer
@@ -102,26 +100,22 @@ function MatchTimer.Stop()
 		HeartbeatConnection:Disconnect()
 		HeartbeatConnection = nil
 	end
-	print("[MatchTimer] Timer stopped")
 end
 
 -- Pause the timer
 function MatchTimer.Pause()
 	IsRunning = false
-	print("[MatchTimer] Timer paused")
 end
 
 -- Resume the timer
 function MatchTimer.Resume()
 	IsRunning = true
-	print("[MatchTimer] Timer resumed")
 end
 
 -- Reset the timer
 function MatchTimer.Reset()
 	TimeRemaining = MatchDuration
 	TimerUpdate:FireAllClients(TimeRemaining)
-	print("[MatchTimer] Timer reset")
 end
 
 -- Get time remaining
@@ -137,8 +131,6 @@ end
 
 -- Private: Handle match end
 function MatchTimer._OnMatchEnd()
-	print("[MatchTimer] Match ended!")
-
 	-- Notify GameManager if available
 	if GameManager then
 		GameManager.EndMatch()
@@ -152,8 +144,6 @@ function MatchTimer.Cleanup()
 	if RemoteFolder then
 		RemoteFolder:Destroy()
 	end
-
-	print("[MatchTimer] Cleaned up")
 end
 
 return MatchTimer

@@ -21,10 +21,10 @@ local PhysicsService = game:GetService("PhysicsService")
 
 -- Settings
 local Settings = {
-	Ground_Kick_Max = 50,
-	Air_Kick_Max = 80,
+	Ground_Kick_Max = 55,
+	Air_Kick_Max = 65,
 	Ground_Kick_Height = 15,
-	Air_Kick_Height = 60,
+	Air_Kick_Height = 70,
 	Possession_Timeout = 0.5,
 	Touch_Cooldown = 0.5,
 	Damping = 0.99
@@ -101,7 +101,6 @@ function BallManager.Initialize(ballPart, blueGoal, redGoal, fieldCenter, teamMa
 	BallManager._SetupPlayerCleanup()
 	BallManager._SetupGoalDetection()
 
-	print("[BallManager] Initialized with goal detection")
 	return true
 end
 
@@ -128,7 +127,6 @@ function BallManager._SetupGoalDetection()
 		end
 	end)
 	table.insert(GoalTouchConnections, redConnection)
-	print("[BallManager] Goal detection active")
 end
 
 -- Set a callback for when possession changes (for AI to listen)
@@ -151,7 +149,6 @@ function BallManager.ResetBallToCenter()
 	Ball.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
 	Ball.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
 
-	print("[BallManager] Ball reset to center")
 end
 
 
@@ -290,6 +287,25 @@ function BallManager.IsCharacterOwner(character)
 	return CurrentOwnerCharacter == character
 end
 
+-- Check if character is a goalkeeper
+local function IsGoalkeeper(character)
+	if not TeamManager then return false end
+
+	-- Check both teams
+	for _, teamName in ipairs({"Blue", "Red"}) do
+		local slots = TeamManager.GetTeamSlots(teamName)
+		if slots then
+			for _, slot in ipairs(slots) do
+				if slot.NPC == character and slot.Role == "GK" then
+					return true
+				end
+			end
+		end
+	end
+
+	return false
+end
+
 -- Check if a character can take possession
 function BallManager.CanTakePossession(character)
 	-- Ball is flying or moving too fast
@@ -321,9 +337,6 @@ end
 -- Note: Animation should be played BEFORE calling this function
 -- - For players: animation played on client
 -- - For NPCs: animation played by AIController
--- Note: Animation should be played BEFORE calling this function
--- - For players: animation played on client
--- - For NPCs: animation played by AIController
 function BallManager.KickBall(character, kickType, power, direction)
 	if CurrentOwnerCharacter ~= character then
 		return false
@@ -335,6 +348,7 @@ function BallManager.KickBall(character, kickType, power, direction)
 	end
 
 	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not rootPart then
 		DetachBall()
 		return false
@@ -359,14 +373,24 @@ function BallManager.KickBall(character, kickType, power, direction)
 
 	-- Detach ball and position it away from character
 	DetachBall()
-	
+
 	-- Position ball slightly in front of character to prevent drag
 	Ball.CFrame = CFrame.new(rootPart.Position + (direction * 3) + Vector3.new(0, -2, 0))
 	Ball.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
 	Ball.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
 
-	-- Small delay for animation timing and physics cleanup
-	task.wait(0.2)
+	-- Disable ball touch temporarily to prevent immediate re-possession
+	Ball.CanTouch = false
+
+	local originalWalkSpeed = humanoid.WalkSpeed
+	humanoid.WalkSpeed = 0
+	rootPart.Anchored = true
+	task.delay(0.2, function()
+		if humanoid and humanoid.Parent then
+			humanoid.WalkSpeed = originalWalkSpeed
+			rootPart.Anchored = false
+		end
+	end)
 
 	-- Apply velocity
 	local velocity = Instance.new("BodyVelocity")
@@ -380,24 +404,21 @@ function BallManager.KickBall(character, kickType, power, direction)
 		KickSound:Play()
 	end
 
+	-- Re-enable ball touch after delay
+	task.delay(0.3, function()
+		if Ball then
+			Ball.CanTouch = true
+		end
+	end)
+
 	return true
 end
 
 -- Private: Setup touch detection
 function BallManager._SetupTouchDetection()
 	TouchConnection = Ball.Touched:Connect(function(part)
-		-- Don't allow attachment if ball is flying or moving fast
-		if Ball:FindFirstChildOfClass("BodyVelocity") or Ball.AssemblyLinearVelocity.Magnitude > 20 then
-			return
-		end
-
 		local character = part.Parent
 		if not character then
-			return
-		end
-
-		-- Check if touched by foot or leg 
-		if not (part.Name == "Shoes" or part.Name == "Socks") then
 			return
 		end
 
@@ -406,13 +427,24 @@ function BallManager._SetupTouchDetection()
 			return
 		end
 
-		-- Check if can take possession
-		if not BallManager.CanTakePossession(character) then
+		local rootPart = character:FindFirstChild("HumanoidRootPart")
+		if not rootPart then
 			return
 		end
 
-		local rootPart = character:FindFirstChild("HumanoidRootPart")
-		if rootPart then
+		-- GOALKEEPER CATCH: Any body part, immediate stop and possession
+		if IsGoalkeeper(character) then
+			-- Remove any BodyVelocity if present
+			local bodyVel = Ball:FindFirstChildOfClass("BodyVelocity")
+			if bodyVel then
+				bodyVel:Destroy()
+			end
+
+			-- Stop ball completely
+			Ball.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+			Ball.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+
+			-- Give immediate possession
 			TouchCooldown[character] = tick()
 			BallManager.SetPossession(character, rootPart)
 
@@ -420,6 +452,31 @@ function BallManager._SetupTouchDetection()
 			if TeamManager and TeamManager.OnBallTouched then
 				TeamManager.OnBallTouched()
 			end
+			return
+		end
+
+		-- NORMAL PLAYERS: Feet only, with speed/cooldown checks
+		-- Don't allow attachment if ball is flying or moving fast
+		if Ball:FindFirstChildOfClass("BodyVelocity") or Ball.AssemblyLinearVelocity.Magnitude > 20 then
+			return
+		end
+
+		-- Check if touched by foot or leg 
+		if not (part.Name == "Shoes" or part.Name == "Socks") then
+			return
+		end
+
+		-- Check if can take possession
+		if not BallManager.CanTakePossession(character) then
+			return
+		end
+
+		TouchCooldown[character] = tick()
+		BallManager.SetPossession(character, rootPart)
+
+		-- Notify TeamManager about ball touch (for kickoff)
+		if TeamManager and TeamManager.OnBallTouched then
+			TeamManager.OnBallTouched()
 		end
 	end)
 end

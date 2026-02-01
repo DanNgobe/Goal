@@ -204,18 +204,18 @@ function AIUtils.PlayNPCKickAnimation(npc, root, direction, power, kickType)
 	animTrack:Play()
 
 	task.spawn(function()
-		-- Wait for animation to complete (max 0.6s to be safe)
-		local waitTime = math.min(animTrack.Length, 0.6)
+		-- Wait for animation to complete (max 0.5s to be safe)
+		local waitTime = math.min(animTrack.Length, 0.45)
 		task.wait(waitTime)
-		
+
 		if root and root.Parent and humanoid and humanoid.Parent then
 			-- Stop animation first
 			animTrack:Stop()
-			
+
 			-- Force unanchor and restore movement
 			root.Anchored = false
 			humanoid.WalkSpeed = originalWalkSpeed
-			
+
 			-- Reset humanoid state to ensure animations restart
 			humanoid:ChangeState(Enum.HumanoidStateType.Running)
 		end

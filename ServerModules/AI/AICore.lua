@@ -67,7 +67,6 @@ function AICore.Initialize(teamManager, npcManager, ballManager, formationData)
 	end
 
 	StartUpdateLoop()
-	print("[AICore] Initialized with modular AI system")
 	return true
 end
 
@@ -144,8 +143,6 @@ function AICore.Cleanup()
 
 	AIBehavior.Cleanup()
 	AIGoalkeeper.Cleanup()
-
-	print("[AICore] Cleaned up")
 end
 
 return AICore

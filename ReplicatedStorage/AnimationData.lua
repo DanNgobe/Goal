@@ -50,6 +50,7 @@ local AnimationData = {
 	-- Idle Animations
 	Idle = {
 		Offensive = "rbxassetid://99972725424538",
+		Goalkeeper = "rbxassetid://92162025465133"
 	},
 }
 
