@@ -23,3 +23,5 @@ Strike Right Kick -  rbxassetid://76069154190283
 Chest Receive Reaction -  rbxassetid://107892350986805
 Running -  rbxassetid://84576343092696
 Falling - rbxassetid://138262391726997
+Jog Left - rbxassetid://114731688967683
+Jog Right - rbxassetid://131199635976533

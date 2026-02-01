@@ -24,7 +24,7 @@ local Settings = {
 	Ground_Kick_Max = 55,
 	Air_Kick_Max = 65,
 	Ground_Kick_Height = 15,
-	Air_Kick_Height = 70,
+	Air_Kick_Height = 65,
 	Possession_Timeout = 0.5,
 	Touch_Cooldown = 0.5,
 	Damping = 0.99
@@ -41,6 +41,10 @@ local BallAxle = nil
 local TouchCooldown = {}  -- Key is now Character
 local HeartbeatConnection = nil
 local TouchConnection = nil
+local GoalkeeperAlignPos = nil  -- For goalkeeper AlignPosition
+local GoalkeeperAlignOri = nil  -- For goalkeeper AlignOrientation
+local GoalkeeperBallAttach = nil  -- Attachment on ball
+local GoalkeeperBoneAttach = nil  -- Attachment on body bone
 
 -- Goal references
 local BlueGoal = nil
@@ -56,6 +60,25 @@ local PossessionChanged = nil
 local PossessionChangedCallback = nil
 local TeamManager = nil
 local FieldCenter = nil
+
+-- Check if character is a goalkeeper
+local function IsGoalkeeper(character)
+	if not TeamManager then return false end
+
+	-- Check both teams
+	for _, teamName in ipairs({"Blue", "Red"}) do
+		local slots = TeamManager.GetTeamSlots(teamName)
+		if slots then
+			for _, slot in ipairs(slots) do
+				if slot.NPC == character and slot.Role == "GK" then
+					return true
+				end
+			end
+		end
+	end
+
+	return false
+end
 
 -- Initialize the Ball Manager
 function BallManager.Initialize(ballPart, blueGoal, redGoal, fieldCenter, teamManager)
@@ -159,50 +182,118 @@ local function AttachBallToCharacter(character, rootPart)
 	if BallSpinner then BallSpinner:Destroy() end
 	if BallAxle then BallAxle:Destroy() end
 
-	-- Position ball in front of character at foot level
-	local offset = rootPart.CFrame.LookVector * 3.25
-	Ball.CFrame = CFrame.new(
-		Vector3.new(rootPart.Position.X, rootPart.Position.Y - 5, rootPart.Position.Z) + 
-			Vector3.new(offset.X, 0, offset.Z)
-	)
+	-- Check if this is a goalkeeper
+	local isGoalkeeper = IsGoalkeeper(character)
 
-	-- Create invisible "axle" part at ball center
-	local axle = Instance.new("Part")
-	axle.Name = "BallAxle"
-	axle.Size = Vector3.new(0.5, 0.5, 0.5)
-	axle.Transparency = 1
-	axle.CanCollide = false
-	axle.Massless = true
-	axle.CFrame = Ball.CFrame
-	axle.Parent = workspace
-	BallAxle = axle
+	if isGoalkeeper then
+		-- GOALKEEPER: Use AlignPosition and AlignOrientation constraints for smooth animation following
+		-- Find the Hips bone (direct child of RootPart, like "mixamorig5:Hips")
+		local hipsBone = nil
 
-	-- Weld axle to character
-	local axleWeld = Instance.new("WeldConstraint")
-	axleWeld.Part0 = axle
-	axleWeld.Part1 = rootPart
-	axleWeld.Parent = axle
+		-- First, find the RootPart (different from HumanoidRootPart)
+		local animRootPart = character:FindFirstChild("RootPart")
 
-	-- Create attachments for HingeConstraint
-	local axleAttachment = Instance.new("Attachment")
-	axleAttachment.CFrame = CFrame.Angles(math.rad(90), 0, 0)
-	axleAttachment.Parent = axle
+		if animRootPart then
+			-- Search for Hips bone directly under RootPart
+			for _, child in pairs(animRootPart:GetChildren()) do
+				if child.Name:match("Hips") then
+					hipsBone = child
+					break
+				end
+			end
+		end
 
-	local ballAttachment = Instance.new("Attachment")
-	ballAttachment.Parent = Ball
+		if not hipsBone then
+			warn("[BallManager] Hips bone not found for goalkeeper, using rootPart as fallback")
+			hipsBone = rootPart
+		end
 
-	-- Create HingeConstraint for ball spin
-	local hinge = Instance.new("HingeConstraint")
-	hinge.Attachment0 = axleAttachment
-	hinge.Attachment1 = ballAttachment
-	hinge.ActuatorType = Enum.ActuatorType.Motor
-	hinge.MotorMaxTorque = 10000
-	hinge.AngularVelocity = 10
-	hinge.Parent = axle
+		-- Clean up any existing goalkeeper constraints
+		if GoalkeeperAlignPos then GoalkeeperAlignPos:Destroy() end
+		if GoalkeeperAlignOri then GoalkeeperAlignOri:Destroy() end
+		if GoalkeeperBallAttach then GoalkeeperBallAttach:Destroy() end
+		if GoalkeeperBoneAttach then GoalkeeperBoneAttach:Destroy() end
 
-	Ball.CanCollide = false
-	BallAttachment = axleWeld
-	BallSpinner = hinge
+		Ball.CanCollide = false
+		Ball.Massless = true
+
+		-- Create attachment on the ball
+		GoalkeeperBallAttach = Instance.new("Attachment")
+		GoalkeeperBallAttach.Parent = Ball
+
+		-- Create attachment on the hips bone with offset
+		GoalkeeperBoneAttach = Instance.new("Attachment")
+		GoalkeeperBoneAttach.Parent = hipsBone
+		GoalkeeperBoneAttach.CFrame = CFrame.new(0, 0, -1.5)  -- Offset: 1.5 studs below hips, 0)  -- Offset: similar to sample script
+
+		-- AlignPosition constraint
+		GoalkeeperAlignPos = Instance.new("AlignPosition")
+		GoalkeeperAlignPos.Attachment0 = GoalkeeperBallAttach
+		GoalkeeperAlignPos.Attachment1 = GoalkeeperBoneAttach
+		GoalkeeperAlignPos.RigidityEnabled = true
+		GoalkeeperAlignPos.MaxForce = math.huge
+		GoalkeeperAlignPos.Responsiveness = 200
+		GoalkeeperAlignPos.Parent = Ball
+
+		-- AlignOrientation constraint
+		GoalkeeperAlignOri = Instance.new("AlignOrientation")
+		GoalkeeperAlignOri.Attachment0 = GoalkeeperBallAttach
+		GoalkeeperAlignOri.Attachment1 = GoalkeeperBoneAttach
+		GoalkeeperAlignOri.RigidityEnabled = true
+		GoalkeeperAlignOri.MaxTorque = math.huge
+		GoalkeeperAlignOri.Responsiveness = 200
+		GoalkeeperAlignOri.Parent = Ball
+
+		BallAttachment = GoalkeeperAlignPos  -- Store reference for cleanup
+		BallSpinner = nil
+		BallAxle = nil
+	else
+		-- OUTFIELD PLAYER: Original complex system with spin
+		-- Position ball in front of character at foot level
+		local offset = rootPart.CFrame.LookVector * 3.25
+		Ball.CFrame = CFrame.new(
+			Vector3.new(rootPart.Position.X, rootPart.Position.Y - 5, rootPart.Position.Z) + 
+				Vector3.new(offset.X, 0, offset.Z)
+		)
+
+		-- Create invisible "axle" part at ball center
+		local axle = Instance.new("Part")
+		axle.Name = "BallAxle"
+		axle.Size = Vector3.new(0.5, 0.5, 0.5)
+		axle.Transparency = 1
+		axle.CanCollide = false
+		axle.Massless = true
+		axle.CFrame = Ball.CFrame
+		axle.Parent = workspace
+		BallAxle = axle
+
+		-- Weld axle to character
+		local axleWeld = Instance.new("WeldConstraint")
+		axleWeld.Part0 = axle
+		axleWeld.Part1 = rootPart
+		axleWeld.Parent = axle
+
+		-- Create attachments for HingeConstraint
+		local axleAttachment = Instance.new("Attachment")
+		axleAttachment.CFrame = CFrame.Angles(math.rad(90), 0, 0)
+		axleAttachment.Parent = axle
+
+		local ballAttachment = Instance.new("Attachment")
+		ballAttachment.Parent = Ball
+
+		-- Create HingeConstraint for ball spin
+		local hinge = Instance.new("HingeConstraint")
+		hinge.Attachment0 = axleAttachment
+		hinge.Attachment1 = ballAttachment
+		hinge.ActuatorType = Enum.ActuatorType.Motor
+		hinge.MotorMaxTorque = 10000
+		hinge.AngularVelocity = 10
+		hinge.Parent = axle
+
+		Ball.CanCollide = false
+		BallAttachment = axleWeld
+		BallSpinner = hinge
+	end
 end
 
 -- Private: Detach ball from character
@@ -220,7 +311,26 @@ local function DetachBall()
 		BallAxle = nil
 	end
 
+	-- Clean up goalkeeper constraints
+	if GoalkeeperAlignPos then
+		GoalkeeperAlignPos:Destroy()
+		GoalkeeperAlignPos = nil
+	end
+	if GoalkeeperAlignOri then
+		GoalkeeperAlignOri:Destroy()
+		GoalkeeperAlignOri = nil
+	end
+	if GoalkeeperBallAttach then
+		GoalkeeperBallAttach:Destroy()
+		GoalkeeperBallAttach = nil
+	end
+	if GoalkeeperBoneAttach then
+		GoalkeeperBoneAttach:Destroy()
+		GoalkeeperBoneAttach = nil
+	end
+
 	Ball.CanCollide = true
+	Ball.Massless = false
 
 	local oldOwner = CurrentOwnerCharacter
 	CurrentOwnerCharacter = nil
@@ -287,25 +397,6 @@ function BallManager.IsCharacterOwner(character)
 	return CurrentOwnerCharacter == character
 end
 
--- Check if character is a goalkeeper
-local function IsGoalkeeper(character)
-	if not TeamManager then return false end
-
-	-- Check both teams
-	for _, teamName in ipairs({"Blue", "Red"}) do
-		local slots = TeamManager.GetTeamSlots(teamName)
-		if slots then
-			for _, slot in ipairs(slots) do
-				if slot.NPC == character and slot.Role == "GK" then
-					return true
-				end
-			end
-		end
-	end
-
-	return false
-end
-
 -- Check if a character can take possession
 function BallManager.CanTakePossession(character)
 	-- Ball is flying or moving too fast
@@ -368,7 +459,7 @@ function BallManager.KickBall(character, kickType, power, direction)
 	-- Calculate kick force first
 	local maxPower = kickType == "Ground" and Settings.Ground_Kick_Max or Settings.Air_Kick_Max
 	local maxHeight = kickType == "Ground" and Settings.Ground_Kick_Height or Settings.Air_Kick_Height
-	local force = maxPower * powerCurve * 1.5
+	local force = maxPower * powerCurve * 1.3
 	local height = maxHeight * powerCurve
 
 	-- Detach ball and position it away from character

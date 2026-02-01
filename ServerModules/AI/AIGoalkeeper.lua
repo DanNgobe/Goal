@@ -1,19 +1,26 @@
 --[[
 	AIGoalkeeper.lua
-	Goalkeeper-specific behavior
+	Goalkeeper - positioning, rush out, intercept prediction, and save animations.
+	
+	Features:
 	- Positioning along goal line based on ball location
 	- Diving to save shots
 	- Catching close balls
 	- Distribution (throw/kick)
 	- Rush out for through balls
-	- Decision making (stay/rush/distribute)
+	- Smooth rotation to face ball
+	- Intercept prediction with anticipation
 ]]
 
 local AIGoalkeeper = {}
 
+-- Services
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 -- Dependencies
 local AIUtils = require(script.Parent.AIUtils)
-local AnimationData = require(game.ReplicatedStorage.AnimationData)
+local AnimationData = require(ReplicatedStorage:WaitForChild("AnimationData"))
 
 -- Injected dependencies
 local TeamManager = nil
@@ -26,42 +33,39 @@ local State = {
 	DistributionDelay = {},
 	ActiveGKs = {},
 	HeartbeatConnection = nil,
-	InterceptMarkers = {}  -- Debug markers for intercept prediction
+	InterceptMarkers = {},
+	RegisteredSlots = {}  -- Track which slots have registered goalkeepers
 }
 
--- Configuration
-local Config = {
-	Positioning = {
-		-- Positioning now uses defensive formation HomePosition
-	},
+-- Settings
+local Settings = {
+	-- Positioning
+	LateralScale = 0.5,
+	LateralClamp = 14,
+	WalkSpeed = 22,
+	RushSpeed = 28,
+	UpdateRate = 0.1,
 
-	Actions = {
-		ReactionDistance = 35,   -- Distance to start reacting to ball
-		AnimationTriggerDistance = 25, -- Distance to trigger save animations
-		WalkToBallDistance = 30, -- Distance to walk to slow balls
-		DiveLateralDistance = 16, -- Lateral distance threshold for dive
-		DiveSpeedThreshold = 30, -- Ball speed threshold for dive
-		WalkSpeedThreshold = 25, -- Ball speed threshold for walking
-		RushOutDistance = 40,    -- Distance to consider rushing out (increased)
-		RushOutSpeed = 24
-	},
+	-- Rush out
+	RushMaxDistHeld = 18,
+	RushMaxDistFree = 35,
+	InterceptRadius = 3,
 
-	Heights = {
-		Scoop = -2,              -- Below this triggers scoop
-		Standing = 3,            -- Below this triggers standing catch
-		Jump = 6                 -- Above this triggers jump catch
-	},
+	-- Intercept translate
+	MaxTranslateDist = 10,
+	TranslateSmoothness = 10,
 
-	Timing = {
-		SaveCooldown = 1.5,      -- Time between save attempts
-		DistributionDelay = 1, -- Time to hold ball before distributing
-		AnticipationSpeed = 25   -- Speed for anticipation movement
-	},
+	-- Save animations
+	AnimationTriggerDistance = 30,
+	AnimationCooldown = 3,
+	DiveLateralDistance = 8,
+	DiveSpeedThreshold = 60,
+	ScoopHeight = 2,
+	StandingHeight = 5,
+	JumpHeight = 10,
 
-	Speed = {
-		Normal = 22,
-		Positioning = 22
-	}
+	-- Distribution
+	DistributionDelay = 1,
 }
 
 --------------------------------------------------------------------------------
@@ -76,16 +80,83 @@ function AIGoalkeeper.Initialize(teamManager, ballManager)
 	if State.HeartbeatConnection then
 		State.HeartbeatConnection:Disconnect()
 	end
-	State.HeartbeatConnection = game:GetService("RunService").Heartbeat:Connect(UpdateRotations)
+	State.HeartbeatConnection = RunService.Heartbeat:Connect(UpdateRotations)
 
 	return TeamManager ~= nil and BallManager ~= nil
+end
+
+--------------------------------------------------------------------------------
+-- REGISTER GOALKEEPER
+--------------------------------------------------------------------------------
+
+function AIGoalkeeper.RegisterGoalkeeper(slot, teamName)
+	local npc = slot.NPC
+	if not npc or not npc.Parent then return end
+
+	local npcId = tostring(npc)
+	
+	-- Store slot and team info for heartbeat updates
+	State.ActiveGKs[npcId] = {
+		npc = npc,
+		slot = slot,
+		teamName = teamName,
+		root = npc:FindFirstChild("HumanoidRootPart"),
+		humanoid = npc:FindFirstChildOfClass("Humanoid")
+	}
+end
+
+--------------------------------------------------------------------------------
+-- ANIMATIONS
+--------------------------------------------------------------------------------
+
+function LoadAnimations(npc)
+	local humanoid = npc:FindFirstChildOfClass("Humanoid")
+	local animations = {}
+	
+	if not humanoid then return animations end
+	
+	for name, id in pairs(AnimationData.Goalkeeper) do
+		local anim = Instance.new("Animation")
+		anim.AnimationId = id
+		local track = humanoid:LoadAnimation(anim)
+		track.Looped = false
+		animations[name] = track
+	end
+	
+	return animations
+end
+
+function StopAllAnimations(animations)
+	for _, track in pairs(animations) do
+		if track and track.IsPlaying then
+			track:Stop()
+		end
+	end
+end
+
+function PlayAnimation(npc, animations, name)
+	if not animations or not animations[name] then return false end
+	
+	local track = animations[name]
+	StopAllAnimations(animations)
+	
+	track:Play()
+	
+	task.spawn(function()
+		local maxTime = math.min(track.Length, 10)
+		task.wait(maxTime)
+		if track and track.IsPlaying then
+			track:Stop()
+		end
+	end)
+	
+	return true
 end
 
 --------------------------------------------------------------------------------
 -- INTERCEPT PREDICTION
 --------------------------------------------------------------------------------
 
--- Predict where the ball will cross the goal plane
 function PredictIntercept(ballPos, ballVel, goalPlaneZ)
 	if math.abs(ballVel.Z) < 0.1 then
 		return nil
@@ -100,122 +171,13 @@ function PredictIntercept(ballPos, ballVel, goalPlaneZ)
 end
 
 --------------------------------------------------------------------------------
--- MAIN GOALKEEPER UPDATE
---------------------------------------------------------------------------------
-
-function AIGoalkeeper.UpdateGoalkeeper(slot, teamName)
-	local npc = slot.NPC
-	if not npc or not npc.Parent then return end
-
-	local humanoid = npc:FindFirstChildOfClass("Humanoid")
-	local root = npc:FindFirstChild("HumanoidRootPart")
-	if not humanoid or not root or humanoid.Health <= 0 then return end
-
-	-- Setup BodyGyro for rotation control
-	local bodyGyro = root:FindFirstChild("GKBodyGyro")
-	if not bodyGyro then
-		bodyGyro = Instance.new("BodyGyro")
-		bodyGyro.Name = "GKBodyGyro"
-		bodyGyro.MaxTorque = Vector3.new(0, 400000, 0)
-		bodyGyro.P = 10000
-		bodyGyro.D = 500
-		bodyGyro.Parent = root
-	end
-
-	local npcId = tostring(npc)
-	local ball = workspace:FindFirstChild("Ball")
-	local hasBall = BallManager and BallManager.IsCharacterOwner(npc) or false
-	State.HasBall[npcId] = hasBall
-
-	-- Track this GK for rotation updates
-	State.ActiveGKs[npcId] = {
-		npc = npc,
-		root = root,
-		bodyGyro = bodyGyro,
-		hasBall = hasBall
-	}
-
-	-- If goalkeeper has ball, distribute it
-	if hasBall then
-		HandleDistribution(npc, humanoid, root, teamName, npcId)
-		return
-	end
-
-	-- If no ball, stay at home position
-	if not ball then
-		humanoid.WalkSpeed = Config.Speed.Normal
-		MoveToPosition(humanoid, root, slot.HomePosition)
-		return
-	end
-
-	-- Decision making: Rush out or position normally
-	local myGoalPos = AIUtils.GetOwnGoalPosition(teamName)
-	if not myGoalPos then
-		MoveToPosition(humanoid, root, slot.HomePosition)
-		return
-	end
-
-	local ballPos = ball.Position
-	local distToBall = (ballPos - root.Position).Magnitude
-
-	-- Intercept prediction for anticipation
-	local intercept = PredictIntercept(ballPos, ball.AssemblyLinearVelocity, slot.HomePosition.Z)
-
-	-- Handle ball right in front of keeper (close distance)
-	if distToBall <= Config.Actions.WalkToBallDistance then
-		local ballSpeed = ball.AssemblyLinearVelocity.Magnitude
-
-		-- If ball is slow or stationary, walk to it
-		if ballSpeed < Config.Actions.WalkSpeedThreshold then
-			humanoid.WalkSpeed = Config.Speed.Normal
-			MoveToPosition(humanoid, root, ballPos)
-			return
-		end
-	end
-
-	-- Try to save/catch if ball is close
-	if distToBall <= Config.Actions.AnimationTriggerDistance then
-		if TrySave(npc, humanoid, root, ball, slot.HomePosition, npcId) then
-			return
-		end
-	end
-
-	-- Anticipation movement if ball is approaching
-	if intercept and distToBall <= Config.Actions.ReactionDistance then
-		-- Move towards predicted intercept point laterally
-		local currentPos = root.Position
-		local targetPos = Vector3.new(intercept.X, currentPos.Y, currentPos.Z)
-
-		humanoid.WalkSpeed = Config.Speed.Positioning
-		MoveToPosition(humanoid, root, targetPos)
-		return
-	end
-
-	-- Decide: Rush out or position at home with lateral adjustment
-	if ShouldRushOut(root, slot.HomePosition, ballPos, teamName) then
-		humanoid.WalkSpeed = Config.Actions.RushOutSpeed
-		MoveToPosition(humanoid, root, ballPos)
-	else
-		humanoid.WalkSpeed = Config.Speed.Positioning
-		-- Adjust position laterally based on ball position
-		local adjustedPos = CalculateGoalkeeperPosition(slot.HomePosition, ballPos)
-		MoveToPosition(humanoid, root, adjustedPos)
-	end
-end
-
---------------------------------------------------------------------------------
 -- 1. POSITIONING
 --------------------------------------------------------------------------------
 
--- Calculate goalkeeper position with lateral adjustment based on ball
 function CalculateGoalkeeperPosition(homePos, ballPos)
-	-- Get lateral offset (X-axis movement left/right)
-	local lateralOffset = (ballPos.X - homePos.X) * 0.5 -- 50% of ball's lateral position
+	local lateralOffset = (ballPos.X - homePos.X) * Settings.LateralScale
+	lateralOffset = math.clamp(lateralOffset, -Settings.LateralClamp, Settings.LateralClamp)
 
-	-- Clamp to prevent going too far (goal is ~33 wide, so ±16 from center)
-	lateralOffset = math.clamp(lateralOffset, -14, 14)
-
-	-- Return home position with lateral adjustment
 	return Vector3.new(homePos.X + lateralOffset, homePos.Y, homePos.Z)
 end
 
@@ -229,62 +191,46 @@ function MoveToPosition(humanoid, root, targetPos)
 end
 
 --------------------------------------------------------------------------------
--- 2. DIVING TO SAVE SHOTS
+-- 2. SAVE ANIMATIONS
 --------------------------------------------------------------------------------
 
-function TrySave(npc, humanoid, root, ball, homePos, npcId)
+function TrySave(npc, humanoid, root, animations, interceptPoint, ballVel, homePos, npcId)
 	local now = tick()
 	local lastSave = State.LastSaveAttempt[npcId] or 0
 
 	-- Cooldown check
-	if now - lastSave < Config.Timing.SaveCooldown then
+	if now - lastSave < Settings.AnimationCooldown then
 		return false
 	end
 
-	local ballPos = ball.Position
-	local ballVel = ball.AssemblyLinearVelocity
+	local relative = root.CFrame:PointToObjectSpace(interceptPoint)
+	local dx = relative.X
+	local dy = interceptPoint.Y - root.Position.Y
 	local speed = ballVel.Magnitude
 
-	-- Predict intercept point
-	local intercept = PredictIntercept(ballPos, ballVel, homePos.Z)
-	if not intercept then
-		return false
-	end
-
-	-- Use intercept for calculations
-	local relative = root.CFrame:PointToObjectSpace(intercept)
-	local dx = relative.X
-	local dy = intercept.Y - root.Position.Y
-
 	local saveType = nil
-	local animId = nil
 
 	-- Check for dive based on lateral distance and speed
-	if math.abs(dx) > Config.Actions.DiveLateralDistance and speed > Config.Actions.DiveSpeedThreshold then
+	if math.abs(dx) > Settings.DiveLateralDistance and speed > Settings.DiveSpeedThreshold then
 		if dx < 0 then
-			saveType = "DiveRight"
-			animId = AnimationData.Goalkeeper.Right_Diving_Save
+			saveType = "Right_Diving_Save"
 		else
-			saveType = "DiveLeft"
-			animId = AnimationData.Goalkeeper.Left_Diving_Save
+			saveType = "Left_Diving_Save"
 		end
-	elseif dy < Config.Heights.Scoop then
+	elseif dy < Settings.ScoopHeight then
 		-- Low ball - scoop
 		saveType = "Scoop"
-		animId = AnimationData.Goalkeeper.Scoop
-	elseif dy < Config.Heights.Standing then
+	elseif dy < Settings.StandingHeight then
 		-- Mid height - standing catch
-		saveType = "StandingCatch"
-		animId = AnimationData.Goalkeeper.Standing_Catch
-	elseif dy > Config.Heights.Jump then
+		saveType = "Standing_Catch"
+	elseif dy > Settings.JumpHeight then
 		-- High ball - jump catch
-		saveType = "JumpCatch"
-		animId = AnimationData.Goalkeeper.Jump_Catch
+		saveType = "Jump_Catch"
 	end
 
-	if saveType and animId then
+	if saveType then
 		State.LastSaveAttempt[npcId] = now
-		PlayGoalkeeperAnimation(npc, humanoid, root, animId, 0.4)
+		PlayAnimation(npc, animations, saveType)
 		return true
 	end
 
@@ -308,7 +254,7 @@ function HandleDistribution(npc, humanoid, root, teamName, npcId)
 	if not delayStart then
 		State.DistributionDelay[npcId] = now
 		return
-	elseif now - delayStart < Config.Timing.DistributionDelay then 
+	elseif now - delayStart < Settings.DistributionDelay then 
 		humanoid:MoveTo(root.Position)
 		return
 	end
@@ -327,7 +273,7 @@ function HandleDistribution(npc, humanoid, root, teamName, npcId)
 		if bestTarget.Distance > 40 then
 			-- Long kick
 			AIUtils.PlayNPCKickAnimation(npc, root, dir, 0.9, "Air")
-			task.delay(0.3, function()
+			task.delay(0.4, function()
 				if BallManager then
 					BallManager.KickBall(npc, "Air", 0.9, dir)
 				end
@@ -335,7 +281,7 @@ function HandleDistribution(npc, humanoid, root, teamName, npcId)
 		else
 			-- Throw
 			AIUtils.PlayNPCKickAnimation(npc, root, dir, 0.5, "Ground")
-			task.delay(0.3, function()
+			task.delay(0.4, function()
 				if BallManager then
 					BallManager.KickBall(npc, "Ground", 0.5, dir)
 				end
@@ -382,96 +328,210 @@ end
 -- 5. RUSH OUT FOR THROUGH BALLS
 --------------------------------------------------------------------------------
 
-function ShouldRushOut(root, homePos, ballPos, teamName)
-	local distToHome = (ballPos - homePos).Magnitude
-	local distToGK = (ballPos - root.Position).Magnitude
+function GetRushDecision(root, homePos, ballPos, ballVel, ballIsHeld, distToBall)
+	local distBallToHome = (ballPos - homePos).Magnitude
+	local maxDist = ballIsHeld and Settings.RushMaxDistHeld or Settings.RushMaxDistFree
 
-	-- Only rush if ball is:
-	-- 1. Within rush distance from home position
-	-- 2. Closer to goalkeeper than to home
-	-- 3. Ball owner is opponent or no owner
-	local ballOwner = BallManager and BallManager.GetCurrentOwner() or nil
-	local isOpponentBall = ballOwner and not AIUtils.IsTeammate(ballOwner, teamName)
-
-	if distToHome < Config.Actions.RushOutDistance and
-		distToGK < distToHome * 0.8 and
-		(not ballOwner or isOpponentBall) then
-		return true
+	if distBallToHome > maxDist then
+		return "none"
 	end
 
-	return false
+	local keeperTime = distToBall / Settings.RushSpeed
+
+	local toKeeper = root.Position - ballPos
+	local awaySpeed = 0
+	if toKeeper.Magnitude > 0 then
+		awaySpeed = math.max(0, ballVel:Dot(toKeeper.Unit) * -1)
+	end
+
+	local ballTime = Settings.InterceptRadius / math.max(awaySpeed, 0.1)
+
+	if keeperTime <= ballTime then
+		return "rush"
+	else
+		return "predict"
+	end
 end
 
 --------------------------------------------------------------------------------
--- 6. DECISION MAKING (integrated in UpdateGoalkeeper)
+-- 6. TRANSLATE TO INTERCEPT
 --------------------------------------------------------------------------------
 
--- Decision making is handled in the main UpdateGoalkeeper function
+function TranslateToIntercept(root, homePos, targetPos)
+	if not targetPos then return end
+
+	local currentPos = root.Position
+
+	-- Lock to goal line
+	local target = Vector3.new(
+		targetPos.X,
+		currentPos.Y,
+		homePos.Z
+	)
+
+	-- Clamp max step
+	local delta = target - currentPos
+	if delta.Magnitude > Settings.MaxTranslateDist then
+		target = currentPos + delta.Unit * Settings.MaxTranslateDist
+	end
+
+	-- Smooth move
+	local dt = Settings.UpdateRate
+	local alpha = 1 - math.exp(-Settings.TranslateSmoothness * dt)
+	local newPos = currentPos:Lerp(target, alpha)
+
+	root.CFrame = CFrame.new(newPos, newPos + root.CFrame.LookVector)
+end
 
 --------------------------------------------------------------------------------
--- SMOOTH ROTATION (HEARTBEAT UPDATE)
+-- HEARTBEAT UPDATE
 --------------------------------------------------------------------------------
 
 function UpdateRotations()
 	local ball = workspace:FindFirstChild("Ball")
 	if not ball then return end
 
-	for npcId, data in pairs(State.ActiveGKs) do
-		if data.npc and data.npc.Parent and data.root and data.root.Parent and data.bodyGyro and data.bodyGyro.Parent then
-			-- Always face the ball (unless we have it)
-			if not data.hasBall then
-				local targetDir = (ball.Position - data.root.Position).Unit
-				local flatTarget = Vector3.new(targetDir.X, 0, targetDir.Z)
-				if flatTarget.Magnitude > 0 then
-					flatTarget = flatTarget.Unit
-					data.bodyGyro.CFrame = CFrame.lookAt(data.root.Position, data.root.Position + flatTarget)
+	-- Check for goalkeeper slot changes and re-register as needed
+	if TeamManager then
+		for _, teamName in ipairs({"Blue", "Red"}) do
+			local slots = TeamManager.GetAISlots(teamName)
+			for _, slot in ipairs(slots) do
+				if slot.Role == "GK" then
+					local slotId = tostring(slot)
+					local currentNPC = slot.NPC
+					local registeredNPC = State.RegisteredSlots[slotId]
+					
+					-- If the NPC in the slot has changed, re-register
+					if currentNPC and currentNPC.Parent and currentNPC ~= registeredNPC then
+						-- Clean up old goalkeeper if it exists
+						if registeredNPC then
+							local oldNpcId = tostring(registeredNPC)
+							State.ActiveGKs[oldNpcId] = nil
+						end
+						
+						-- Register new goalkeeper
+						AIGoalkeeper.RegisterGoalkeeper(slot, teamName)
+						State.RegisteredSlots[slotId] = currentNPC
+					elseif not currentNPC or not currentNPC.Parent then
+						-- Slot is empty, clean up
+						State.RegisteredSlots[slotId] = nil
+						if registeredNPC then
+							local oldNpcId = tostring(registeredNPC)
+							State.ActiveGKs[oldNpcId] = nil
+						end
+					end
 				end
 			end
-		else
-			-- Clean up invalid GKs
+		end
+	end
+
+	for npcId, data in pairs(State.ActiveGKs) do
+		-- Skip if NPC is invalid
+		if not data.npc or not data.npc.Parent then
 			State.ActiveGKs[npcId] = nil
+			continue
+		end
+
+		local npc = data.npc
+		local humanoid = data.humanoid or npc:FindFirstChildOfClass("Humanoid")
+		local root = data.root or npc:FindFirstChild("HumanoidRootPart")
+
+		if not humanoid or not root then
+			State.ActiveGKs[npcId] = nil
+			continue
+		end
+
+		-- Setup BodyGyro if not present
+		local bodyGyro = root:FindFirstChild("GKBodyGyro")
+		if not bodyGyro then
+			bodyGyro = Instance.new("BodyGyro")
+			bodyGyro.Name = "GKBodyGyro"
+			bodyGyro.MaxTorque = Vector3.new(0, 400000, 0)
+			bodyGyro.P = 10000
+			bodyGyro.D = 500
+			bodyGyro.Parent = root
+		end
+
+		-- Update goalkeeper with its slot and team data
+		if data.slot and data.teamName then
+			UpdateGoalkeeperState(npc, humanoid, root, bodyGyro, data.slot, data.teamName, npcId, ball)
+		end
+
+		-- Face the ball (unless we have it)
+		local hasBall = BallManager and BallManager.IsCharacterOwner(npc) or false
+		if not hasBall then
+			local targetDir = (ball.Position - root.Position).Unit
+			local flatTarget = Vector3.new(targetDir.X, 0, targetDir.Z)
+			if flatTarget.Magnitude > 0 then
+				flatTarget = flatTarget.Unit
+				bodyGyro.CFrame = CFrame.lookAt(root.Position, root.Position + flatTarget)
+			end
 		end
 	end
 end
 
---------------------------------------------------------------------------------
--- ANIMATION HELPER
---------------------------------------------------------------------------------
+function UpdateGoalkeeperState(npc, humanoid, root, bodyGyro, slot, teamName, npcId, ball)
+	if humanoid.Health <= 0 then return end
 
-function PlayGoalkeeperAnimation(npc, humanoid, root, animId, maxSeconds)
-	local originalWalkSpeed = humanoid.WalkSpeed
-	humanoid.WalkSpeed = 0
-	root.Anchored = true
+	local hasBall = BallManager and BallManager.IsCharacterOwner(npc) or false
+	State.HasBall[npcId] = hasBall
 
-	local animator = humanoid:FindFirstChildOfClass("Animator")
-	if not animator then
-		animator = Instance.new("Animator")
-		animator.Parent = humanoid
+	-- If goalkeeper has ball, distribute it
+	if hasBall then
+		-- Reset distribution delay timer when first acquiring ball
+		if not State.DistributionDelay[npcId] then
+			State.DistributionDelay[npcId] = tick()
+		end
+		HandleDistribution(npc, humanoid, root, teamName, npcId)
+		return
+	else
+		-- Clear distribution delay when ball is lost
+		State.DistributionDelay[npcId] = nil
 	end
 
-	local animation = Instance.new("Animation")
-	animation.AnimationId = animId
-	local animTrack = animator:LoadAnimation(animation)
+	-- If no ball, stay at home position
+	if not ball then
+		humanoid.WalkSpeed = Settings.WalkSpeed
+		MoveToPosition(humanoid, root, slot.HomePosition)
+		return
+	end
 
-	-- Ensure animation doesn't loop
-	animTrack.Looped = false
-	animTrack:Play()
+	-- Load animations for this NPC if not already loaded
+	if not State.ActiveGKs[npcId].animations then
+		State.ActiveGKs[npcId].animations = LoadAnimations(npc)
+	end
+	local animations = State.ActiveGKs[npcId].animations
 
-	task.spawn(function()
-		local maxTime = animTrack.Length
-		if maxSeconds  then
-			maxTime = math.min(maxTime, maxSeconds)
+	local ballPos = ball.Position
+	local ballVel = ball.AssemblyLinearVelocity
+	local ballIsHeld = not ball.CanCollide
+	local distToBall = (ballPos - root.Position).Magnitude
+
+	-- Intercept prediction
+	local interceptPoint = PredictIntercept(ballPos, ballVel, slot.HomePosition.Z)
+
+	-- Try save animations before anything else
+	if interceptPoint and distToBall <= Settings.AnimationTriggerDistance then
+		if TrySave(npc, humanoid, root, animations, interceptPoint, ballVel, slot.HomePosition, npcId) then
+			return
 		end
-		task.wait(maxTime)
-		if animTrack and animTrack.IsPlaying then
-			animTrack:Stop()
-		end
-		if root and humanoid then
-			root.Anchored = false
-			humanoid.WalkSpeed = originalWalkSpeed
-		end
-		animation:Destroy()
-	end)
+	end
+
+	-- Decide: Rush out or position normally
+	local rushResult = GetRushDecision(root, slot.HomePosition, ballPos, ballVel, ballIsHeld, distToBall)
+
+	if rushResult == "rush" then
+		humanoid.WalkSpeed = Settings.RushSpeed
+		MoveToPosition(humanoid, root, ballPos)
+	elseif rushResult == "predict" and interceptPoint then
+		TranslateToIntercept(root, slot.HomePosition, interceptPoint)
+		humanoid.WalkSpeed = Settings.WalkSpeed
+	else
+		humanoid.WalkSpeed = Settings.WalkSpeed
+		-- Adjust position laterally based on ball position
+		local adjustedPos = CalculateGoalkeeperPosition(slot.HomePosition, ballPos)
+		MoveToPosition(humanoid, root, adjustedPos)
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -489,6 +549,7 @@ function AIGoalkeeper.Cleanup()
 	State.HasBall = {}
 	State.DistributionDelay = {}
 	State.ActiveGKs = {}
+	State.RegisteredSlots = {}
 end
 
 return AIGoalkeeper

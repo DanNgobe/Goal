@@ -66,6 +66,16 @@ function AICore.Initialize(teamManager, npcManager, ballManager, formationData)
 		return false
 	end
 
+	-- Register all goalkeepers with their slots
+	for _, teamName in ipairs({"Blue", "Red"}) do
+		local slots = TeamManager.GetAISlots(teamName)
+		for _, slot in ipairs(slots) do
+			if slot.Role == "GK" then
+				AIGoalkeeper.RegisterGoalkeeper(slot, teamName)
+			end
+		end
+	end
+
 	StartUpdateLoop()
 	return true
 end
@@ -105,14 +115,12 @@ function UpdateNPC(slot, teamName)
 	-- Get NPC role from tactics
 	local role = AITactics.GetNPCRole(slot, teamName)
 
-	-- Check if this is a goalkeeper
-	local isGoalkeeper = slot.Role == "GK"
-
-	if isGoalkeeper then
-		AIGoalkeeper.UpdateGoalkeeper(slot, teamName)
-	else
-		AIBehavior.UpdateNPC(slot, teamName, role)
+	-- Skip goalkeepers (updated on heartbeat in AIGoalkeeper)
+	if slot.Role == "GK" then
+		return
 	end
+
+	AIBehavior.UpdateNPC(slot, teamName, role)
 end
 
 --------------------------------------------------------------------------------
