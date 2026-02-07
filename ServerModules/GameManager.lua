@@ -104,7 +104,8 @@ function GameManager.Initialize()
 	-- Step 10: Initialize PlayerController
 	local playerSuccess = Managers.PlayerController.Initialize(
 		Managers.TeamManager,
-		Managers.NPCManager
+		Managers.NPCManager,
+		Managers.AIController
 	)
 	if not playerSuccess then
 		warn("[GameManager] Failed to initialize PlayerController!")
@@ -118,6 +119,9 @@ function GameManager.Initialize()
 		return false
 	end
 	Managers.MatchTimer.Start()
+	
+	-- Step 12: Enable AI for all NPCs
+	GameManager._EnableAIForAllNPCs()
 	
 	CurrentState = GameState.Playing
 	return true
@@ -159,6 +163,30 @@ function GameManager._FindWorkspaceObjects()
 	end
 
 	return true
+end
+
+-- Private: Enable AI for all NPCs at game start
+function GameManager._EnableAIForAllNPCs()
+	if not Managers.AIController or not Managers.TeamManager then
+		warn("[GameManager] Cannot enable AI - managers not initialized")
+		return
+	end
+	
+	local teams = {"Blue", "Red"}
+	local enabledCount = 0
+	
+	for _, teamName in ipairs(teams) do
+		local slots = Managers.TeamManager.GetTeamSlots(teamName)
+		
+		for _, slot in ipairs(slots) do
+			if slot.NPC and slot.IsAI then
+				Managers.AIController.EnableAI(slot.NPC)
+				enabledCount = enabledCount + 1
+			end
+		end
+	end
+	
+	print(string.format("[GameManager] Enabled AI for %d NPCs", enabledCount))
 end
 
 -- Private: Load all manager modules

@@ -18,6 +18,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- Dependencies (injected)
 local TeamManager = nil
 local NPCManager = nil
+local AICore = nil
 
 -- Player tracking
 local PlayerSlots = {}  -- {[Player] = {Team = "Blue", SlotIndex = 1}}
@@ -29,9 +30,10 @@ local SwitchSlotRequest = nil
 local PlayerJoined = nil
 
 -- Initialize
-function PlayerController.Initialize(teamManager, npcManager)
+function PlayerController.Initialize(teamManager, npcManager, aiCore)
 	TeamManager = teamManager
 	NPCManager = npcManager
+	AICore = aiCore
 
 	if not TeamManager or not NPCManager then
 		warn("[PlayerController] Missing required managers!")
@@ -118,6 +120,10 @@ function AssignPlayerToSlot(player, teamName, slotIndex)
 
 	-- Remove NPC from this slot
 	if slot.NPC and slot.NPC.Parent then
+		-- Disable AI for this NPC before destroying
+		if AICore and AICore.DisableAI then
+			AICore.DisableAI(slot.NPC)
+		end
 		slot.NPC:Destroy()
 	end
 
@@ -214,6 +220,10 @@ function SwitchPlayerSlot(player, teamName, newSlotIndex)
 
 	-- Remove NPC from new slot
 	if newSlot.NPC and newSlot.NPC.Parent then
+		-- Disable AI for this NPC before destroying
+		if AICore and AICore.DisableAI then
+			AICore.DisableAI(newSlot.NPC)
+		end
 		newSlot.NPC:Destroy()
 	end
 
@@ -226,6 +236,10 @@ function SwitchPlayerSlot(player, teamName, newSlotIndex)
 			if npcData then
 				oldSlot.NPC = npcData.Model
 				oldSlot.IsAI = true
+				-- Enable AI for the newly spawned NPC
+				if AICore and AICore.EnableAI then
+					AICore.EnableAI(npcData.Model)
+				end
 			end
 		end
 	end
@@ -266,6 +280,10 @@ function OnPlayerLeaving(player)
 				if npcData then
 					slot.NPC = npcData.Model
 					slot.IsAI = true
+					-- Enable AI for the newly spawned NPC
+					if AICore and AICore.EnableAI then
+						AICore.EnableAI(npcData.Model)
+					end
 				end
 			end
 		end
@@ -317,6 +335,10 @@ function PlayerController.ResetAllPlayersForNewMatch()
 						if npcData then
 							slot.NPC = npcData.Model
 							slot.IsAI = true
+							-- Enable AI for the newly spawned NPC
+							if AICore and AICore.EnableAI then
+								AICore.EnableAI(npcData.Model)
+							end
 						end
 					end
 				end
