@@ -55,6 +55,7 @@ local GoalSettings = {
 -- Remote Events
 local GoalRemoteFolder = nil
 local GoalScored = nil
+local GoalCelebration = nil
 
 -- Initialize the Team Manager
 function TeamManager.Initialize(blueGoal, redGoal, npcManager, formationData)
@@ -81,6 +82,10 @@ function TeamManager.Initialize(blueGoal, redGoal, npcManager, formationData)
 	GoalScored = Instance.new("RemoteEvent")
 	GoalScored.Name = "GoalScored"
 	GoalScored.Parent = GoalRemoteFolder
+	
+	GoalCelebration = Instance.new("RemoteEvent")
+	GoalCelebration.Name = "GoalCelebration"
+	GoalCelebration.Parent = GoalRemoteFolder
 
 	-- Start in kickoff mode (Blue attacks, Red frozen)
 	FrozenTeams = {"Red"}
@@ -521,7 +526,7 @@ function TeamManager.UnfreezeAllTeams()
 end
 
 -- Handle goal scored
-function TeamManager.OnGoalScored(scoringTeam)
+function TeamManager.OnGoalScored(scoringTeam, scorerCharacter)
 	if IsProcessingGoal then
 		return
 	end
@@ -538,6 +543,11 @@ function TeamManager.OnGoalScored(scoringTeam)
 	-- Broadcast to all clients
 	if GoalScored then
 		GoalScored:FireAllClients(scoringTeam, blueScore, redScore)
+	end
+	
+	-- Broadcast celebration camera event with scorer
+	if GoalCelebration and scorerCharacter and scorerCharacter.Parent then
+		GoalCelebration:FireAllClients(scorerCharacter)
 	end
 
 

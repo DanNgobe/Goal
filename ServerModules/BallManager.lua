@@ -34,6 +34,7 @@ local Settings = {
 local Ball = nil
 local KickSound = nil
 local CurrentOwnerCharacter = nil  -- Now stores Character, not Player
+local LastKickerCharacter = nil  -- Track who last kicked the ball (for goal celebrations)
 local OwnershipStart = 0
 local BallAttachment = nil
 local BallSpinner = nil
@@ -120,8 +121,8 @@ function BallManager._SetupGoalDetection()
 		if hit == Ball and TeamManager then
 			-- Reset ball immediately
 			BallManager.ResetBallToCenter()
-			-- Notify TeamManager
-			TeamManager.OnGoalScored("Red")  -- Red scores in Blue's goal
+			-- Notify TeamManager with scorer info
+			TeamManager.OnGoalScored("Red", LastKickerCharacter)  -- Red scores in Blue's goal
 		end
 	end)
 	table.insert(GoalTouchConnections, blueConnection)
@@ -131,8 +132,8 @@ function BallManager._SetupGoalDetection()
 		if hit == Ball and TeamManager then
 			-- Reset ball immediately
 			BallManager.ResetBallToCenter()
-			-- Notify TeamManager
-			TeamManager.OnGoalScored("Blue")  -- Blue scores in Red's goal
+			-- Notify TeamManager with scorer info
+			TeamManager.OnGoalScored("Blue", LastKickerCharacter)  -- Blue scores in Red's goal
 		end
 	end)
 	table.insert(GoalTouchConnections, redConnection)
@@ -423,6 +424,9 @@ function BallManager.KickBall(character, kickType, power, direction)
 		DetachBall()
 		return false
 	end
+	
+	-- Track who kicked the ball (for goal celebrations)
+	LastKickerCharacter = character
 
 	local rootPart = character:FindFirstChild("HumanoidRootPart")
 	local humanoid = character:FindFirstChildOfClass("Humanoid")

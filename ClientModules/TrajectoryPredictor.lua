@@ -144,7 +144,6 @@ function TrajectoryPredictor.Update(kickType, startPos, direction, power)
 		local point = TrajectoryPoints[i]
 		if positions[i] then
 			point.Position = positions[i]
-			point.Visible = true
 			
 			-- Set color based on kick type
 			if kickType == "Ground" then
@@ -157,7 +156,7 @@ function TrajectoryPredictor.Update(kickType, startPos, direction, power)
 			local fadeAmount = (i / #positions) * 0.5
 			point.Transparency = Settings.Transparency + fadeAmount
 		else
-			point.Visible = false
+			point.Transparency = 1
 		end
 	end
 end
@@ -174,7 +173,7 @@ function TrajectoryPredictor.Hide()
 	if TrajectoryFolder then
 		-- Hide all points
 		for _, point in ipairs(TrajectoryPoints) do
-			point.Visible = false
+			point.Transparency = 1
 		end
 	end
 end

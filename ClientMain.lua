@@ -29,8 +29,14 @@ local InputHandler = require(ClientModules:WaitForChild("InputHandler"))
 -- Load CameraController
 local CameraController = require(ClientModules:WaitForChild("CameraController"))
 
+-- Load BallEffects
+local BallEffects = require(ClientModules:WaitForChild("BallEffects"))
+
 -- Initialize Camera Controller first
 local cameraSuccess = CameraController.Initialize()
+
+-- Initialize Ball Effects
+local ballEffectsSuccess = BallEffects.Initialize()
 
 -- Initialize UI (pass CameraController reference)
 local uiSuccess = UIController.Initialize(CameraController)
@@ -41,7 +47,7 @@ local ballSuccess = BallControlClient.Initialize()
 -- Initialize Input Handler (pass BallControlClient reference)
 local inputSuccess = InputHandler.Initialize(BallControlClient)
 
-if uiSuccess and ballSuccess and inputSuccess and cameraSuccess then
+if uiSuccess and ballSuccess and inputSuccess and cameraSuccess and ballEffectsSuccess then
 	print("[ClientMain] ✓ Client ready")
 else
 	warn("[ClientMain] ✗ Client initialization failed!")

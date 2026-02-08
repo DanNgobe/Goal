@@ -18,6 +18,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ScoreboardUI = require(script.Parent.UI.ScoreboardUI)
 local IntermissionUI = require(script.Parent.UI.IntermissionUI)
 local TeamJoinUI = require(script.Parent.UI.TeamJoinUI)
+local CameraEffects = require(script.Parent.CameraEffects)
 
 -- Private variables
 local Player = Players.LocalPlayer
@@ -58,6 +59,16 @@ function UIController._ConnectGoalEvents()
 	goalScored.OnClientEvent:Connect(function(scoringTeam, blueScore, redScore)
 		UIController._OnGoalScored(scoringTeam, blueScore, redScore)
 	end)
+	
+	-- Connect to goal celebration event (with scorer info)
+	task.spawn(function()
+		local goalCelebration = goalRemotes:WaitForChild("GoalCelebration", 5)
+		if goalCelebration then
+			goalCelebration.OnClientEvent:Connect(function(scorerCharacter)
+				UIController._OnGoalCelebration(scorerCharacter)
+			end)
+		end
+	end)
 end
 
 -- Private: Connect to timer events
@@ -92,6 +103,14 @@ end
 function UIController._OnGoalScored(scoringTeam, blueScore, redScore)
 	ScoreboardUI.UpdateScores(blueScore, redScore)
 	IntermissionUI.ShowGoal(scoringTeam)
+end
+
+-- Private: Handle goal celebration camera
+function UIController._OnGoalCelebration(scorerCharacter)
+	if scorerCharacter and scorerCharacter.Parent then
+		-- Trigger celebration camera zoom
+		CameraEffects.CelebrationZoom(scorerCharacter, 3)
+	end
 end
 
 -- Manually update scoreboard (for testing)

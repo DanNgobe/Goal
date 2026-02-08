@@ -15,6 +15,9 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
+-- Module dependencies (loaded after initialization)
+local CameraEffects = nil
+
 -- Private variables
 local Camera = workspace.CurrentCamera
 local Player = Players.LocalPlayer
@@ -34,6 +37,9 @@ local MAX_VERTICAL_ANGLE = math.rad(80)
 
 -- Initialize
 function CameraController.Initialize()
+	-- Load CameraEffects module
+	CameraEffects = require(script.Parent.CameraEffects)
+	
 	-- Set camera type
 	Camera.CameraType = Enum.CameraType.Scriptable
 
@@ -132,6 +138,11 @@ end
 
 -- Private: Update camera position and rotation
 function UpdateCamera()
+	-- Don't update camera if celebration is active
+	if CameraEffects and CameraEffects.IsCelebrating() then
+		return
+	end
+	
 	if not Character or not HumanoidRootPart then return end
 
 	-- Calculate camera position based on rotation
