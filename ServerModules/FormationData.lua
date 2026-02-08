@@ -4,7 +4,7 @@
 	
 	Formations:
 	- NEUTRAL: Default formation, everyone in own half (used at kickoff and when no possession)
-	- ATTACKING: Pushed forward (used when team has ball)
+	- ATTACKING: Pushed forward with WIDE wingers for passing options
 	- DEFENSIVE: Deep and compact (used when opponent has ball)
 	
 	5v5 Formation Layout:
@@ -44,13 +44,13 @@ local NEUTRAL_FORMATION = {
 	{
 		Role = "LW",
 		Name = "LeftWing",
-		Position = Vector3.new(-0.15, 0, -0.25),
+		Position = Vector3.new(-0.18, 0, -0.2),  -- Moderate width
 		ShortName = "LW"
 	},
 	{
 		Role = "RW",
 		Name = "RightWing",
-		Position = Vector3.new(0.15, 0, -0.25),
+		Position = Vector3.new(0.18, 0, -0.2),  -- Moderate width
 		ShortName = "RW"
 	},
 	{
@@ -62,7 +62,7 @@ local NEUTRAL_FORMATION = {
 }
 
 -- ATTACKING Formation (When team has possession)
--- Pushed forward to press opponent
+-- Pushed forward with wider wingers to create passing lanes
 local ATTACKING_FORMATION = {
 	{
 		Role = "GK",
@@ -73,25 +73,25 @@ local ATTACKING_FORMATION = {
 	{
 		Role = "DF",
 		Name = "Defender",
-		Position = Vector3.new(0, 0, -0.2),
+		Position = Vector3.new(0, 0, -0.15),  -- Pushed up more to support
 		ShortName = "DF"
 	},
 	{
 		Role = "LW",
 		Name = "LeftWing",
-		Position = Vector3.new(-0.2, 0, 0.05),
+		Position = Vector3.new(-0.22, 0, 0.15),  -- Narrower but still wide
 		ShortName = "LW"
 	},
 	{
 		Role = "RW",
 		Name = "RightWing",
-		Position = Vector3.new(0.2, 0, 0.05),
+		Position = Vector3.new(0.22, 0, 0.15),  -- Narrower but still wide
 		ShortName = "RW"
 	},
 	{
 		Role = "ST",
 		Name = "Striker",
-		Position = Vector3.new(0, 0, 0.25),
+		Position = Vector3.new(0, 0, 0.35),  -- Higher up the pitch
 		ShortName = "ST"
 	}
 }
@@ -114,19 +114,19 @@ local DEFENSIVE_FORMATION = {
 	{
 		Role = "LW",
 		Name = "LeftWing",
-		Position = Vector3.new(-0.12, 0, -0.28),
+		Position = Vector3.new(-0.2, 0, -0.25),
 		ShortName = "LW"
 	},
 	{
 		Role = "RW",
 		Name = "RightWing",
-		Position = Vector3.new(0.12, 0, -0.28),
+		Position = Vector3.new(0.2, 0, -0.25),
 		ShortName = "RW"
 	},
 	{
 		Role = "ST",
 		Name = "Striker",
-		Position = Vector3.new(0, 0, -0.18),
+		Position = Vector3.new(0, 0, -0.1),
 		ShortName = "ST"
 	}
 }

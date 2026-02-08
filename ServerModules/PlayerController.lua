@@ -97,8 +97,16 @@ end
 function FindAvailableSlot(teamName)
 	local slots = TeamManager.GetTeamSlots(teamName)
 
+	-- First, look for any field player slot (non-GK)
 	for i, slot in ipairs(slots) do
-		if slot.IsAI then
+		if slot.IsAI and slot.Role ~= "GK" then
+			return i
+		end
+	end
+
+	-- If only GK is left, then assign to GK
+	for i, slot in ipairs(slots) do
+		if slot.IsAI and slot.Role == "GK" then
 			return i
 		end
 	end
@@ -168,7 +176,8 @@ function OnSwitchSlotRequest(player)
 	local closestDistance = math.huge
 
 	for i, slot in ipairs(slots) do
-		if slot.IsAI and i ~= currentIndex and slot.NPC then
+		-- Players cannot switch to Goalkeeper role (can only spawn as GK)
+		if slot.IsAI and i ~= currentIndex and slot.NPC and slot.Role ~= "GK" then
 			local npcRoot = slot.NPC:FindFirstChild("HumanoidRootPart")
 			if npcRoot then
 				local distance = (npcRoot.Position - ballPosition).Magnitude

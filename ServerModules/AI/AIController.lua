@@ -2,7 +2,7 @@
 	AIController.lua
 	Main AI coordinator - entry point for the AI system
 	- Formation management (Attacking/Defensive/Neutral)
-	- Ball role assignment (Chaser/Supporters)
+	- IMPROVED: Intelligent ball role assignment (multiple pressers, goal coverage)
 	- Target-based movement orchestration
 	
 	Replaces AICore.lua and AITactics.lua
@@ -35,8 +35,10 @@ local State = {
 -- Configuration
 local Config = {
 	UpdateInterval = 0.1,
-	RoleUpdateInterval = 0.5,
-	BallChaseDistance = 100
+	RoleUpdateInterval = 0.3,  -- More frequent updates for fluid play
+	BallChaseDistance = 100,
+	DangerZoneDistance = 40,   -- Distance from goal considered "dangerous"
+	SpaceSearchRadius = 25     -- Radius to check for crowded areas
 }
 
 local UpdateConnection = nil
@@ -67,8 +69,8 @@ function AIController.Initialize(teamManager, npcManager, ballManager, formation
 	end
 
 	-- Initialize role structures
-	State.BallRoles.Blue = {Chaser = nil, Supporters = {}}
-	State.BallRoles.Red = {Chaser = nil, Supporters = {}}
+	State.BallRoles.Blue = {Chaser = nil, SecondPress = nil, GoalCover = nil, Supporters = {}}
+	State.BallRoles.Red = {Chaser = nil, SecondPress = nil, GoalCover = nil, Supporters = {}}
 
 	-- Connect to possession changes
 	if BallManager then
@@ -138,7 +140,7 @@ function UpdateTeamHomePositions(teamName)
 end
 
 --------------------------------------------------------------------------------
--- BALL ROLE ASSIGNMENT
+-- IMPROVED BALL ROLE ASSIGNMENT
 --------------------------------------------------------------------------------
 
 function UpdateBallRoles()
@@ -156,16 +158,91 @@ function UpdateBallRoles()
 	local ballOwner = BallManager and BallManager.GetCurrentOwner() or nil
 
 	for _, teamName in ipairs({"Blue", "Red"}) do
-		AssignBallRoles(teamName, ballPos, ballOwner)
+		if ballOwner and AIUtils.IsTeammate(ballOwner, teamName) then
+			-- Our team has the ball - assign attacking roles
+			AssignAttackingRoles(teamName, ballPos, ballOwner)
+		else
+			-- Opponent has ball or it's loose - assign defensive roles
+			AssignDefensiveRoles(teamName, ballPos, ballOwner)
+		end
 	end
 end
 
-function AssignBallRoles(teamName, ballPos, ballOwner)
+function AssignAttackingRoles(teamName, ballPos, ballOwner)
+	if not TeamManager then return end
+
+	local slots = TeamManager.GetAISlots(teamName)
+	local roles = State.BallRoles[teamName]
+	
+	-- Clear defensive roles
+	roles.Chaser = nil
+	roles.SecondPress = nil
+	roles.GoalCover = nil
+	roles.Supporters = {}
+
+	-- If goalkeeper has ball, players return to formation positions
+	if ballOwner and TeamManager.IsGoalkeeper(ballOwner) then
+		return
+	end
+
+	-- For attacking, find players in OPEN SPACE to receive passes
+	local candidates = {}
+	
+	for _, slot in ipairs(slots) do
+		local npc = slot.NPC
+		if npc and npc.Parent and npc ~= ballOwner then
+			local root = npc:FindFirstChild("HumanoidRootPart")
+			if root then
+				local currentPos = root.Position
+				
+				-- Check how crowded this position is
+				local crowdedness = GetPositionCrowdedness(currentPos, teamName)
+				
+				-- Distance from ball carrier
+				local distFromBall = (ballPos - currentPos).Magnitude
+				
+				-- Prefer players that are:
+				-- 1. Not too crowded (low crowdedness score)
+				-- 2. At reasonable distance (not too far, not too close)
+				-- 3. Ahead of ball carrier (moving forward)
+				local goalPos = AIUtils.GetOpponentGoalPosition(teamName)
+				local progressScore = 0
+				if goalPos then
+					local ballDistToGoal = (goalPos - ballPos).Magnitude
+					local playerDistToGoal = (goalPos - currentPos).Magnitude
+					progressScore = ballDistToGoal - playerDistToGoal  -- Positive if player is ahead
+				end
+				
+				-- Lower score = better position
+				local score = crowdedness * 5 + (distFromBall * 0.2) - (progressScore * 0.3)
+				
+				table.insert(candidates, {
+					Slot = slot,
+					Score = score,
+					Crowdedness = crowdedness
+				})
+			end
+		end
+	end
+	
+	-- Sort by score (lower is better - less crowded, good position)
+	table.sort(candidates, function(a, b) return a.Score < b.Score end)
+	
+	-- Assign supporters (best positioned players for receiving passes)
+	for i = 1, math.min(3, #candidates) do
+		table.insert(roles.Supporters, candidates[i].Slot)
+	end
+end
+
+function AssignDefensiveRoles(teamName, ballPos, ballOwner)
 	if not TeamManager then return end
 
 	local slots = TeamManager.GetAISlots(teamName)
 	local roles = State.BallRoles[teamName]
 	local candidates = {}
+	
+	local ownGoalPos = AIUtils.GetOwnGoalPosition(teamName)
+	local ballDistToGoal = ownGoalPos and (ownGoalPos - ballPos).Magnitude or 999
 
 	for _, slot in ipairs(slots) do
 		local npc = slot.NPC
@@ -173,44 +250,86 @@ function AssignBallRoles(teamName, ballPos, ballOwner)
 			local root = npc:FindFirstChild("HumanoidRootPart")
 			if root then
 				local distToBall = (ballPos - root.Position).Magnitude
-				local distFromHome = slot.HomePosition and (slot.HomePosition - root.Position).Magnitude or 0
+				local distToGoal = ownGoalPos and (ownGoalPos - root.Position).Magnitude or 0
 
-				-- Calculate a weighted score: lower is better
-				-- Penalize being far from home position
-				local score = distToBall + (distFromHome * 0.3)
+				-- Prioritize players closer to ball for pressing
+				local score = distToBall
 
 				if distToBall <= Config.BallChaseDistance then
 					table.insert(candidates, {
 						Slot = slot, 
-						Score = score
+						Score = score,
+						DistToBall = distToBall,
+						DistToGoal = distToGoal
 					})
 				end
 			end
 		end
 	end
 
-	-- Sort by score (lower is better)
+	-- Sort by score (lower = closer to ball)
 	table.sort(candidates, function(a, b) return a.Score < b.Score end)
 
 	roles.Chaser = nil
+	roles.SecondPress = nil
+	roles.GoalCover = nil
 	roles.Supporters = {}
 
-	if #candidates > 0 then
-		-- Only assign chaser if no teammate has the ball
-		if not ballOwner or not AIUtils.IsTeammate(ballOwner, teamName) then
-			roles.Chaser = candidates[1].Slot
-		end
+	-- If goalkeeper has ball, players return to formation positions (no active pressing)
+	local ballOwnerIsGK = ballOwner and TeamManager.IsGoalkeeper(ballOwner)
 
-		-- Assign supporters (2nd and 3rd closest by score)
-		for i = 2, math.min(3, #candidates) do
-			table.insert(roles.Supporters, candidates[i].Slot)
+	if #candidates > 0 and not ballOwnerIsGK then
+		-- INTELLIGENT ROLE ASSIGNMENT
+		
+		-- 1. Primary presser (closest)
+		roles.Chaser = candidates[1].Slot
+		
+		-- 2. Second presser (if ball is in dangerous zone, apply double press)
+		if #candidates > 1 and ballDistToGoal < Config.DangerZoneDistance then
+			roles.SecondPress = candidates[2].Slot
+		end
+		
+		-- 3. Goal cover (if ball is dangerous, someone drops back to cover)
+		if ballDistToGoal < Config.DangerZoneDistance and #candidates > 2 then
+			-- Find the deepest player to cover goal
+			local deepestIdx = 2  -- Start after chaser
+			local deepestDist = candidates[2].DistToGoal
+			
+			for i = 3, #candidates do
+				if candidates[i].DistToGoal < deepestDist then
+					deepestDist = candidates[i].DistToGoal
+					deepestIdx = i
+				end
+			end
+			
+			roles.GoalCover = candidates[deepestIdx].Slot
+		end
+		
+		-- 4. Remaining players are supporters (mark dangerous areas)
+		for i = 2, #candidates do
+			local slot = candidates[i].Slot
+			-- Skip if already assigned to SecondPress or GoalCover
+			if slot ~= roles.SecondPress and slot ~= roles.GoalCover then
+				table.insert(roles.Supporters, slot)
+			end
 		end
 	end
+end
+
+function GetPositionCrowdedness(position, teamName)
+	-- Count how many teammates and opponents are nearby
+	local teammates = AIUtils.GetNearbyPlayers(position, teamName, Config.SpaceSearchRadius)
+	local opponents = AIUtils.GetNearbyPlayers(position, AIUtils.GetOppositeTeam(teamName), Config.SpaceSearchRadius)
+	
+	-- Return total count (higher = more crowded)
+	return #teammates + #opponents
 end
 
 function ClearBallRoles()
 	for _, teamName in ipairs({"Blue", "Red"}) do
 		State.BallRoles[teamName].Chaser = nil
+		State.BallRoles[teamName].SecondPress = nil
+		State.BallRoles[teamName].GoalCover = nil
 		State.BallRoles[teamName].Supporters = {}
 	end
 end
@@ -219,6 +338,8 @@ function GetNPCRole(slot, teamName)
 	local roles = State.BallRoles[teamName]
 
 	if roles.Chaser == slot then return "Chaser" end
+	if roles.SecondPress == slot then return "SecondPress" end
+	if roles.GoalCover == slot then return "GoalCover" end
 
 	for _, supporter in ipairs(roles.Supporters) do
 		if supporter == slot then return "Support" end
