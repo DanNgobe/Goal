@@ -157,6 +157,20 @@ function TeamManager.GetSlotByRole(teamName, role)
 	return nil
 end
 
+-- Check if a character is currently in a goalkeeper slot
+function TeamManager.IsGoalkeeper(character)
+	if not character then return false end
+
+	for _, team in pairs(Teams) do
+		for _, slot in ipairs(team.Slots) do
+			if slot.NPC == character and slot.Role == "GK" then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 -- Get all slots for a team
 function TeamManager.GetTeamSlots(teamName)
 	local team = Teams[teamName]
@@ -228,12 +242,22 @@ function TeamManager.AssignPlayerToTeam(player)
 	local teamName = (blueCount <= redCount) and "Blue" or "Red"
 	local team = Teams[teamName]
 
-	-- Find first available slot (AI-controlled)
+	-- Find first available slot (AI-controlled), prioritizing non-GK
 	local availableSlot = nil
 	for i, slot in ipairs(team.Slots) do
-		if slot.IsAI and not slot.Controller then
+		if slot.IsAI and not slot.Controller and slot.Role ~= "GK" then
 			availableSlot = i
 			break
+		end
+	end
+
+	-- Fallback to GK if no field player slots available
+	if not availableSlot then
+		for i, slot in ipairs(team.Slots) do
+			if slot.IsAI and not slot.Controller and slot.Role == "GK" then
+				availableSlot = i
+				break
+			end
 		end
 	end
 

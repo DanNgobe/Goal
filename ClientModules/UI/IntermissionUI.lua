@@ -48,7 +48,7 @@ function IntermissionUI.Create(parent)
 	GoalText.Position = UDim2.new(0.05, 0, 0.15, 0)
 	GoalText.BackgroundTransparency = 1
 	GoalText.Font = Enum.Font.GothamBold
-	GoalText.TextSize = 64
+	GoalText.TextScaled = true
 	GoalText.TextColor3 = Color3.new(1, 1, 1)
 	GoalText.Text = "⚽ GOAL!"
 	GoalText.Parent = IntermissionFrame
@@ -65,7 +65,7 @@ function IntermissionUI.Create(parent)
 	SubText.Position = UDim2.new(0.05, 0, 0.68, 0)
 	SubText.BackgroundTransparency = 1
 	SubText.Font = Enum.Font.Gotham
-	SubText.TextSize = 32
+	SubText.TextScaled = true
 	SubText.TextColor3 = Color3.fromRGB(255, 215, 0)
 	SubText.Text = "Blue Team Scored!"
 	SubText.Parent = IntermissionFrame

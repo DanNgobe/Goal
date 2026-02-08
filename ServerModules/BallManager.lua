@@ -63,21 +63,7 @@ local FieldCenter = nil
 
 -- Check if character is a goalkeeper
 local function IsGoalkeeper(character)
-	if not TeamManager then return false end
-
-	-- Check both teams
-	for _, teamName in ipairs({"Blue", "Red"}) do
-		local slots = TeamManager.GetTeamSlots(teamName)
-		if slots then
-			for _, slot in ipairs(slots) do
-				if slot.NPC == character and slot.Role == "GK" then
-					return true
-				end
-			end
-		end
-	end
-
-	return false
+	return TeamManager and TeamManager.IsGoalkeeper(character)
 end
 
 -- Initialize the Ball Manager

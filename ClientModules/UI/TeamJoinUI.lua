@@ -19,15 +19,15 @@ function TeamJoinUI.Create(parent, cameraController)
 	
 	JoinPanel = Instance.new("Frame")
 	JoinPanel.Name = "TeamJoinPanel"
-	JoinPanel.Size = UDim2.new(0, 450, 0, 180)
-	JoinPanel.Position = UDim2.new(0.5, -225, 0.5, -90)
+	JoinPanel.Size = UDim2.new(0.3, 0, 0.15, 0)
+	JoinPanel.Position = UDim2.new(0.35, 0, 0.8, 0)
 	JoinPanel.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
 	JoinPanel.BackgroundTransparency = 0.1
 	JoinPanel.BorderSizePixel = 0
 	JoinPanel.Parent = parent
 
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 15)
+	corner.CornerRadius = UDim.new(0.15, 0)
 	corner.Parent = JoinPanel
 
 	local stroke = Instance.new("UIStroke")
@@ -46,11 +46,11 @@ function TeamJoinUI.Create(parent, cameraController)
 	-- Title
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
-	title.Size = UDim2.new(1, 0, 0, 50)
-	title.Position = UDim2.new(0, 0, 0, 15)
+	title.Size = UDim2.new(0.9, 0, 0.25, 0)
+	title.Position = UDim2.new(0.05, 0, 0.05, 0)
 	title.BackgroundTransparency = 1
 	title.Font = Enum.Font.GothamBold
-	title.TextSize = 40
+	title.TextScaled = true
 	title.TextColor3 = Color3.fromRGB(255, 255, 255)
 	title.Text = "⚽ JOIN TEAM ⚽"
 	title.Parent = JoinPanel
@@ -63,18 +63,18 @@ function TeamJoinUI.Create(parent, cameraController)
 	-- Blue Team Button
 	local blueButton = Instance.new("TextButton")
 	blueButton.Name = "BlueButton"
-	blueButton.Size = UDim2.new(0, 160, 0, 70)
-	blueButton.Position = UDim2.new(0, 35, 0, 90)
+	blueButton.Size = UDim2.new(0.42, 0, 0.55, 0)
+	blueButton.Position = UDim2.new(0.05, 0, 0.38, 0)
 	blueButton.BackgroundColor3 = Color3.fromRGB(30, 130, 255)
 	blueButton.BorderSizePixel = 0
 	blueButton.Font = Enum.Font.GothamBold
-	blueButton.TextSize = 32
+	blueButton.TextScaled = true
 	blueButton.TextColor3 = Color3.new(1, 1, 1)
 	blueButton.Text = "BLUE"
 	blueButton.Parent = JoinPanel
 
 	local blueCorner = Instance.new("UICorner")
-	blueCorner.CornerRadius = UDim.new(0, 12)
+	blueCorner.CornerRadius = UDim.new(0.2, 0)
 	blueCorner.Parent = blueButton
 
 	local blueStroke = Instance.new("UIStroke")
@@ -85,18 +85,18 @@ function TeamJoinUI.Create(parent, cameraController)
 	-- Red Team Button
 	local redButton = Instance.new("TextButton")
 	redButton.Name = "RedButton"
-	redButton.Size = UDim2.new(0, 160, 0, 70)
-	redButton.Position = UDim2.new(1, -195, 0, 90)
+	redButton.Size = UDim2.new(0.42, 0, 0.55, 0)
+	redButton.Position = UDim2.new(0.53, 0, 0.38, 0)
 	redButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
 	redButton.BorderSizePixel = 0
 	redButton.Font = Enum.Font.GothamBold
-	redButton.TextSize = 32
+	redButton.TextScaled = true
 	redButton.TextColor3 = Color3.new(1, 1, 1)
 	redButton.Text = "RED"
 	redButton.Parent = JoinPanel
 
 	local redCorner = Instance.new("UICorner")
-	redCorner.CornerRadius = UDim.new(0, 12)
+	redCorner.CornerRadius = UDim.new(0.2, 0)
 	redCorner.Parent = redButton
 
 	local redStroke = Instance.new("UIStroke")
@@ -110,7 +110,7 @@ function TeamJoinUI.Create(parent, cameraController)
 		
 		button.MouseEnter:Connect(function()
 			local tween = TweenService:Create(button, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-				Size = UDim2.new(0, originalSize.X.Offset * 1.1, 0, originalSize.Y.Offset * 1.1)
+				Size = UDim2.new(originalSize.X.Scale * 1.1, 0, originalSize.Y.Scale * 1.1, 0)
 			})
 			tween:Play()
 		end)
