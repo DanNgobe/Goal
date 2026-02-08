@@ -1,17 +1,24 @@
 --[[
-	AITactics.lua
-	Team tactics, formations, and role assignments
+	AIController.lua
+	Main AI coordinator - entry point for the AI system
 	- Formation management (Attacking/Defensive/Neutral)
 	- Ball role assignment (Chaser/Supporters)
-	- Home position calculations
+	- Target-based movement orchestration
+	
+	Replaces AICore.lua and AITactics.lua
 ]]
 
-local AITactics = {}
+local AIController = {}
 
--- Dependencies
+-- Services
+local RunService = game:GetService("RunService")
+
+-- AI Modules
 local AIUtils = require(script.Parent.AIUtils)
+local AIBehavior = require(script.Parent.AIBehavior)
+local AIGoalkeeper = require(script.Parent.AIGoalkeeper)
 
--- Injected dependencies
+-- Dependencies (injected)
 local TeamManager = nil
 local NPCManager = nil
 local BallManager = nil
@@ -19,6 +26,7 @@ local FormationData = nil
 
 -- State
 local State = {
+	LastUpdate = 0,
 	Formations = {Blue = "Neutral", Red = "Neutral"},
 	BallRoles = {Blue = {}, Red = {}},
 	LastRoleUpdate = 0
@@ -26,22 +34,37 @@ local State = {
 
 -- Configuration
 local Config = {
+	UpdateInterval = 0.1,
 	RoleUpdateInterval = 0.5,
 	BallChaseDistance = 100
 }
+
+local UpdateConnection = nil
 
 --------------------------------------------------------------------------------
 -- INITIALIZATION
 --------------------------------------------------------------------------------
 
-function AITactics.Initialize(teamManager, npcManager, ballManager, formationData)
+function AIController.Initialize(teamManager, npcManager, ballManager, formationData)
 	TeamManager = teamManager
 	NPCManager = npcManager
 	BallManager = ballManager
 	FormationData = formationData
 
-	-- Initialize AIUtils
-	AIUtils.Initialize(teamManager, npcManager)
+	if not TeamManager or not NPCManager or not BallManager or not FormationData then
+		warn("[AIController] Missing required managers!")
+		return false
+	end
+
+	-- Initialize AI subsystems
+	local utilsOk = AIUtils.Initialize(teamManager, npcManager)
+	local behaviorOk = AIBehavior.Initialize(teamManager, ballManager)
+	local gkOk = AIGoalkeeper.Initialize(teamManager, ballManager)
+
+	if not (utilsOk and behaviorOk and gkOk) then
+		warn("[AIController] Failed to initialize AI subsystems!")
+		return false
+	end
 
 	-- Initialize role structures
 	State.BallRoles.Blue = {Chaser = nil, Supporters = {}}
@@ -50,44 +73,55 @@ function AITactics.Initialize(teamManager, npcManager, ballManager, formationDat
 	-- Connect to possession changes
 	if BallManager then
 		BallManager.OnPossessionChanged(function(character, hasBall)
-			AITactics.HandlePossessionChange(character, hasBall)
+			HandlePossessionChange(character, hasBall)
 		end)
 	end
 
-	return TeamManager ~= nil and NPCManager ~= nil and BallManager ~= nil and FormationData ~= nil
+	-- Register all goalkeepers with their slots
+	for _, teamName in ipairs({"Blue", "Red"}) do
+		local slots = TeamManager.GetAISlots(teamName)
+		for _, slot in ipairs(slots) do
+			if slot.Role == "GK" then
+				AIGoalkeeper.RegisterGoalkeeper(slot, teamName)
+			end
+		end
+	end
+
+	StartUpdateLoop()
+	return true
 end
 
 --------------------------------------------------------------------------------
--- FORMATION MANAGEMENT
+-- POSSESSION & FORMATIONS
 --------------------------------------------------------------------------------
 
-function AITactics.HandlePossessionChange(character, hasBall)
+function HandlePossessionChange(character, hasBall)
 	if not character then
-		AITactics.SetBothFormations("Neutral")
+		AIController.SetBothFormations("Neutral")
 		return
 	end
 
 	local teamWithBall = AIUtils.FindCharacterTeam(character)
 	if teamWithBall and hasBall then
-		AITactics.SetFormation(teamWithBall, "Attacking")
-		AITactics.SetFormation(AIUtils.GetOppositeTeam(teamWithBall), "Defensive")
+		AIController.SetFormation(teamWithBall, "Attacking")
+		AIController.SetFormation(AIUtils.GetOppositeTeam(teamWithBall), "Defensive")
 	else
-		AITactics.SetBothFormations("Neutral")
+		AIController.SetBothFormations("Neutral")
 	end
 end
 
-function AITactics.SetFormation(teamName, formationType)
+function AIController.SetFormation(teamName, formationType)
 	if State.Formations[teamName] == formationType then return end
 	State.Formations[teamName] = formationType
-	AITactics.UpdateTeamHomePositions(teamName)
+	UpdateTeamHomePositions(teamName)
 end
 
-function AITactics.SetBothFormations(formationType)
-	AITactics.SetFormation("Blue", formationType)
-	AITactics.SetFormation("Red", formationType)
+function AIController.SetBothFormations(formationType)
+	AIController.SetFormation("Blue", formationType)
+	AIController.SetFormation("Red", formationType)
 end
 
-function AITactics.UpdateTeamHomePositions(teamName)
+function UpdateTeamHomePositions(teamName)
 	if not FormationData or not TeamManager or not NPCManager then return end
 
 	local formation = FormationData.GetFormationByName(State.Formations[teamName])
@@ -107,7 +141,7 @@ end
 -- BALL ROLE ASSIGNMENT
 --------------------------------------------------------------------------------
 
-function AITactics.UpdateBallRoles()
+function UpdateBallRoles()
 	local now = tick()
 	if now - State.LastRoleUpdate < Config.RoleUpdateInterval then return end
 	State.LastRoleUpdate = now
@@ -148,8 +182,6 @@ function AssignBallRoles(teamName, ballPos, ballOwner)
 				if distToBall <= Config.BallChaseDistance then
 					table.insert(candidates, {
 						Slot = slot, 
-						DistanceToBall = distToBall,
-						DistanceFromHome = distFromHome,
 						Score = score
 					})
 				end
@@ -157,7 +189,7 @@ function AssignBallRoles(teamName, ballPos, ballOwner)
 		end
 	end
 
-	-- Sort by score (lower is better - closer to ball and closer to home)
+	-- Sort by score (lower is better)
 	table.sort(candidates, function(a, b) return a.Score < b.Score end)
 
 	roles.Chaser = nil
@@ -183,7 +215,7 @@ function ClearBallRoles()
 	end
 end
 
-function AITactics.GetNPCRole(slot, teamName)
+function GetNPCRole(slot, teamName)
 	local roles = State.BallRoles[teamName]
 
 	if roles.Chaser == slot then return "Chaser" end
@@ -196,25 +228,70 @@ function AITactics.GetNPCRole(slot, teamName)
 end
 
 --------------------------------------------------------------------------------
+-- UPDATE LOOP
+--------------------------------------------------------------------------------
+
+function StartUpdateLoop()
+	UpdateConnection = RunService.Heartbeat:Connect(function()
+		local now = tick()
+		if now - State.LastUpdate < Config.UpdateInterval then return end
+		State.LastUpdate = now
+
+		-- Update tactics logic
+		UpdateBallRoles()
+
+		-- Update all NPCs
+		UpdateAllAI()
+	end)
+end
+
+function UpdateAllAI()
+	if TeamManager and TeamManager.IsProcessingGoal() then return end
+
+	for _, teamName in ipairs({"Blue", "Red"}) do
+		if TeamManager and TeamManager.IsTeamFrozen(teamName) then continue end
+
+		local slots = TeamManager.GetAISlots(teamName)
+		for _, slot in ipairs(slots) do
+			-- Skip goalkeepers (updated on heartbeat in AIGoalkeeper)
+			if slot.Role ~= "GK" then
+				local role = GetNPCRole(slot, teamName)
+				AIBehavior.UpdateNPC(slot, teamName, role)
+			end
+		end
+	end
+end
+
+--------------------------------------------------------------------------------
 -- PUBLIC API
 --------------------------------------------------------------------------------
 
-function AITactics.GetTeamFormation(teamName)
+function AIController.GetTeamFormation(teamName)
 	return State.Formations[teamName]
 end
 
-function AITactics.GetBallRoles(teamName)
+function AIController.GetBallRoles(teamName)
 	return State.BallRoles[teamName]
 end
 
-function AITactics.ForceFormationUpdate(teamName, formationType)
-	AITactics.SetFormation(teamName, formationType)
+function AIController.ForceFormationUpdate(teamName, formationType)
+	AIController.SetFormation(teamName, formationType)
 	return true
 end
 
-function AITactics.RefreshAllPositions()
-	AITactics.UpdateTeamHomePositions("Blue")
-	AITactics.UpdateTeamHomePositions("Red")
+function AIController.RefreshAllPositions()
+	UpdateTeamHomePositions("Blue")
+	UpdateTeamHomePositions("Red")
 end
 
-return AITactics
+function AIController.Cleanup()
+	if UpdateConnection then
+		UpdateConnection:Disconnect()
+		UpdateConnection = nil
+	end
+
+	AIBehavior.Cleanup()
+	AIGoalkeeper.Cleanup()
+end
+
+return AIController

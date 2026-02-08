@@ -22,6 +22,34 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local AIUtils = require(script.Parent.AIUtils)
 local AnimationData = require(ReplicatedStorage:WaitForChild("AnimationData"))
 
+-- Local helper for kick animations
+local function PlayKickAnimation(npc, direction, power, kickType)
+	local humanoid = npc:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+
+	local animId = AnimationData.ChooseKickAnimation(npc:FindFirstChild("HumanoidRootPart"), direction, power, kickType)
+	local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator")
+	animator.Parent = humanoid
+
+	local kickAnim = Instance.new("Animation")
+	kickAnim.AnimationId = animId
+	local track = animator:LoadAnimation(kickAnim)
+	track:Play()
+	
+	-- Play running animation when kick finishes
+	track.Ended:Connect(function()
+		if humanoid and npc.Parent then
+			local runAnim = Instance.new("Animation")
+			runAnim.AnimationId = AnimationData.Movement.Running
+			local runTrack = animator:LoadAnimation(runAnim)
+			runTrack.Looped = false
+			runTrack:Play()
+		end
+	end)
+	
+	return track
+end
+
 -- Injected dependencies
 local TeamManager = nil
 local BallManager = nil
@@ -65,7 +93,7 @@ local Settings = {
 	JumpHeight = 10,
 
 	-- Distribution
-	DistributionDelay = 1,
+	DistributionDelay = 3,
 }
 
 --------------------------------------------------------------------------------
@@ -114,11 +142,17 @@ function LoadAnimations(npc)
 	local animations = {}
 	
 	if not humanoid then return animations end
+
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = humanoid
+	end
 	
 	for name, id in pairs(AnimationData.Goalkeeper) do
 		local anim = Instance.new("Animation")
 		anim.AnimationId = id
-		local track = humanoid:LoadAnimation(anim)
+		local track = animator:LoadAnimation(anim)
 		track.Looped = false
 		animations[name] = track
 	end
@@ -143,7 +177,7 @@ function PlayAnimation(npc, animations, name)
 	track:Play()
 	
 	task.spawn(function()
-		local maxTime = math.min(track.Length, 10)
+		local maxTime = math.min(track.Length, 6)
 		task.wait(maxTime)
 		if track and track.IsPlaying then
 			track:Stop()
@@ -272,7 +306,7 @@ function HandleDistribution(npc, humanoid, root, teamName, npcId)
 		-- Choose distribution method based on distance
 		if bestTarget.Distance > 40 then
 			-- Long kick
-			AIUtils.PlayNPCKickAnimation(npc, root, dir, 0.9, "Air")
+			PlayKickAnimation(npc, dir, 0.9, "Air")
 			task.delay(0.4, function()
 				if BallManager then
 					BallManager.KickBall(npc, "Air", 0.9, dir)
@@ -280,7 +314,7 @@ function HandleDistribution(npc, humanoid, root, teamName, npcId)
 			end)
 		else
 			-- Throw
-			AIUtils.PlayNPCKickAnimation(npc, root, dir, 0.5, "Ground")
+			PlayKickAnimation(npc, dir, 0.5, "Ground")
 			task.delay(0.4, function()
 				if BallManager then
 					BallManager.KickBall(npc, "Ground", 0.5, dir)

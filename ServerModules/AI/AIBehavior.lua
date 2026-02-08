@@ -11,6 +11,7 @@ local AIBehavior = {}
 
 -- Dependencies
 local AIUtils = require(script.Parent.AIUtils)
+local AnimationData = require(game:GetService("ReplicatedStorage"):WaitForChild("AnimationData"))
 
 -- Injected dependencies
 local TeamManager = nil
@@ -74,6 +75,26 @@ function AIBehavior.Initialize(teamManager, ballManager)
 end
 
 --------------------------------------------------------------------------------
+-- HELPER: PLAY KICK ANIMATION
+--------------------------------------------------------------------------------
+
+local function PlayKickAnimation(npc, direction, power, kickType)
+	local humanoid = npc:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+
+	local animId = AnimationData.ChooseKickAnimation(npc:FindFirstChild("HumanoidRootPart"), direction, power, kickType)
+	local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator")
+	animator.Parent = humanoid
+
+	local kickAnim = Instance.new("Animation")
+	kickAnim.AnimationId = animId
+	local track = animator:LoadAnimation(kickAnim)
+	track.Looped = false
+	track:Play()
+	return track
+end
+
+--------------------------------------------------------------------------------
 -- MAIN NPC UPDATE
 --------------------------------------------------------------------------------
 
@@ -87,7 +108,7 @@ function AIBehavior.UpdateNPC(slot, teamName, role)
 
 	-- Skip update if NPC is currently performing a kick animation
 	local npcId = tostring(npc)
-	if State.KickingNPCs[npcId] then return end
+	-- if State.KickingNPCs[npcId] then return end
 
 	-- Setup BodyGyro for rotation control
 	local bodyGyro = root:FindFirstChild("AIBodyGyro")
@@ -221,27 +242,16 @@ function TryShoot(slot, npc, root, teamName)
 
 	-- Face the goal direction (instantly)
 	local dirToGoal = (goalPos - root.Position).Unit
-	FaceDirection(root, dirToGoal, 1)
 
 	local power = math.clamp(dist / Config.Distance.ShootRange, 0.5, 1)
 	local kickType = dist > 40 and "Air" or "Ground"
 
 	-- Mark NPC as kicking to prevent AI updates during animation
 	local npcId = tostring(npc)
-	State.KickingNPCs[npcId] = true
+	-- State.KickingNPCs[npcId] = true
 
-	AIUtils.PlayNPCKickAnimation(npc, root, dirToGoal, power, kickType)
-
-	-- Spawn kick in separate thread so it doesn't block
-	task.spawn(function()
-		if BallManager then
-			BallManager.KickBall(npc, kickType, power, dirToGoal)
-		end
-		-- Clear kicking state after a delay
-		task.wait(0.8)
-		State.KickingNPCs[npcId] = nil
-	end)
-
+	local animTrack = PlayKickAnimation(npc, dirToGoal, power, kickType)
+	BallManager.KickBall(npc, kickType, power, dirToGoal)
 	return true
 end
 
@@ -251,24 +261,27 @@ function TryPass(slot, npc, root, teamName)
 
 	-- Face the pass target direction (instantly)
 	local dir = (bestTarget.Position - root.Position).Unit
-	FaceDirection(root, dir, 1)
-
+	
 	local power = math.clamp(bestTarget.Distance / Config.Distance.PassRange, 0.3, 0.8)
 
 	-- Mark NPC as kicking to prevent AI updates during animation
 	local npcId = tostring(npc)
-	State.KickingNPCs[npcId] = true
+	-- State.KickingNPCs[npcId] = true
 
-	AIUtils.PlayNPCKickAnimation(npc, root, dir, power, "Ground")
+	local animTrack = PlayKickAnimation(npc, dir, power, "Ground")
 
 	-- Spawn kick in separate thread so it doesn't block
 	task.spawn(function()
 		if BallManager then
 			BallManager.KickBall(npc, "Ground", power, dir)
 		end
-		-- Clear kicking state after a delay
-		task.wait(0.8)
-		State.KickingNPCs[npcId] = nil
+		-- Wait for animation to finish before clearing kicking state
+		if animTrack then
+			animTrack.Ended:Wait()
+		else
+			task.wait(0.8)
+		end
+		-- State.KickingNPCs[npcId] = nil
 	end)
 
 	return true
@@ -431,35 +444,6 @@ function UpdateRotations()
 end
 
 --------------------------------------------------------------------------------
--- SIMPLE ROTATION 
---------------------------------------------------------------------------------
-
-function FaceDirection(root, direction, alpha)
-	local flatTarget = Vector3.new(direction.X, 0, direction.Z)
-	if flatTarget.Magnitude == 0 then return end
-	flatTarget = flatTarget.Unit
-
-	local flatCurrent = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z).Unit
-	if flatCurrent.Magnitude > 0 then 
-		flatCurrent = flatCurrent.Unit
-	else
-		flatCurrent = root.CFrame.LookVector
-	end
-
-	alpha = alpha or 0.2
-	local newLook = (flatCurrent:Lerp(flatTarget, alpha)).Unit
-	local newCFrame = CFrame.lookAt(root.Position, root.Position + newLook)
-
-	root.CFrame = newCFrame
-
-	-- Also update BodyGyro if it exists to prevent it from overriding the rotation
-	local bodyGyro = root:FindFirstChild("AIBodyGyro")
-	if bodyGyro then
-		bodyGyro.CFrame = newCFrame
-	end
-end
-
---------------------------------------------------------------------------------
 -- CLEANUP
 --------------------------------------------------------------------------------
 
@@ -474,7 +458,7 @@ function AIBehavior.Cleanup()
 	State.LastPassTime = {}
 	State.LastBallReceived = {}
 	State.ActiveNPCs = {}
-	State.KickingNPCs = {}
+	-- State.KickingNPCs = {}
 end
 
 return AIBehavior

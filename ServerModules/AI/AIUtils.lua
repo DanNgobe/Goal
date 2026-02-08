@@ -177,49 +177,6 @@ function AIUtils.GetGoalDirection(teamName, isOpponent)
 	return nil
 end
 
---------------------------------------------------------------------------------
--- ANIMATION
---------------------------------------------------------------------------------
 
--- Play kick animation for NPC
-function AIUtils.PlayNPCKickAnimation(npc, root, direction, power, kickType)
-	local humanoid = npc:FindFirstChildOfClass("Humanoid")
-	if not humanoid then return end
-
-	local animId = AnimationData.ChooseKickAnimation(root, direction, power, kickType)
-	local originalWalkSpeed = humanoid.WalkSpeed
-
-	humanoid.WalkSpeed = 0
-	root.Anchored = true
-
-	local animator = humanoid:FindFirstChildOfClass("Animator")
-	if not animator then
-		animator = Instance.new("Animator")
-		animator.Parent = humanoid
-	end
-
-	local kickAnimation = Instance.new("Animation")
-	kickAnimation.AnimationId = animId
-	local animTrack = animator:LoadAnimation(kickAnimation)
-	animTrack:Play()
-
-	task.spawn(function()
-		-- Wait for animation to complete (max 0.5s to be safe)
-		local waitTime = math.min(animTrack.Length, 0.45)
-		task.wait(waitTime)
-
-		if root and root.Parent and humanoid and humanoid.Parent then
-			-- Stop animation first
-			animTrack:Stop()
-
-			-- Force unanchor and restore movement
-			root.Anchored = false
-			humanoid.WalkSpeed = originalWalkSpeed
-
-			-- Reset humanoid state to ensure animations restart
-			humanoid:ChangeState(Enum.HumanoidStateType.Running)
-		end
-	end)
-end
 
 return AIUtils

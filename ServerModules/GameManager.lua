@@ -181,20 +181,20 @@ function GameManager._LoadManagers()
 	}
 
 	-- Load AI system (new modular structure)
-	local aiCoreModule = ServerModules:FindFirstChild("AI")
-	if aiCoreModule then
-		aiCoreModule = aiCoreModule:FindFirstChild("AICore")
+	local aiControllerModule = ServerModules:FindFirstChild("AI")
+	if aiControllerModule then
+		aiControllerModule = aiControllerModule:FindFirstChild("AIController")
 	end
-	if not aiCoreModule then
-		warn("[GameManager] AI/AICore module not found!")
+	if not aiControllerModule then
+		warn("[GameManager] AI/AIController module not found!")
 		return false
 	end
-	local success, aiCore = pcall(require, aiCoreModule)
+	local success, aiController = pcall(require, aiControllerModule)
 	if not success then
-		warn("[GameManager] Failed to load AICore: " .. tostring(aiCore))
+		warn("[GameManager] Failed to load AIController: " .. tostring(aiController))
 		return false
 	end
-	Managers.AIController = aiCore  -- Keep same name for compatibility
+	Managers.AIController = aiController  -- Keep same name for compatibility
 
 	for _, managerName in ipairs(managersToLoad) do
 		local moduleScript = ServerModules:FindFirstChild(managerName)

@@ -44,6 +44,7 @@ local AnimationData = {
 	Movement = {
 		Running = "rbxassetid://84576343092696",
 		Jump = "rbxassetid://127586004923181",
+		Fall = "rbxassetid://138262391726997",
 		Spin = "rbxassetid://97707998406279",
 	},
 	
