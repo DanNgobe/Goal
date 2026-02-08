@@ -18,6 +18,7 @@ local RunService = game:GetService("RunService")
 -- Modules
 local AnimationData = require(ReplicatedStorage:WaitForChild("AnimationData"))
 local ChargeBarUI = require(script.Parent.UI.ChargeBarUI)
+local TrajectoryPredictor = require(script.Parent.TrajectoryPredictor)
 
 -- Private variables
 local Player = Players.LocalPlayer
@@ -75,6 +76,9 @@ function BallControlClient.Initialize()
 	screenGui.Parent = PlayerGui
 	
 	ChargeBarUI.Create(screenGui)
+	
+	-- Initialize trajectory predictor
+	TrajectoryPredictor.Initialize()
 
 	-- Listen for possession changes
 	PossessionChanged.OnClientEvent:Connect(function(hasBall)
@@ -135,6 +139,14 @@ function SetupUpdateLoop()
 		if IsChargingGroundKick or IsChargingAirKick then
 			local power = GetChargePower()
 			ChargeBarUI.Update(power)
+			
+			-- Update trajectory prediction
+			if RootPart then
+				local direction = GetKickDirection()
+				local startPos = RootPart.Position + Vector3.new(0, 2, 0) + direction * 3
+				local kickType = IsChargingGroundKick and "Ground" or "Air"
+				TrajectoryPredictor.Update(kickType, startPos, direction, power)
+			end
 		end
 	end)
 end
@@ -216,6 +228,7 @@ function StartGroundKick()
 	ChargeStartTime = tick()
 	ChargeBarUI.SetLabel("GROUND KICK")
 	ChargeBarUI.Show()
+	TrajectoryPredictor.Show()
 end
 
 function ReleaseGroundKick()
@@ -223,6 +236,7 @@ function ReleaseGroundKick()
 
 	IsChargingGroundKick = false
 	ChargeBarUI.Hide()
+	TrajectoryPredictor.Hide()
 
 	if HasBall and Character and RootPart then
 		local power = GetChargePower()
@@ -243,6 +257,7 @@ function StartAirKick()
 	ChargeStartTime = tick()
 	ChargeBarUI.SetLabel("AIR KICK")
 	ChargeBarUI.Show()
+	TrajectoryPredictor.Show()
 end
 
 function ReleaseAirKick()
@@ -250,6 +265,7 @@ function ReleaseAirKick()
 
 	IsChargingAirKick = false
 	ChargeBarUI.Hide()
+	TrajectoryPredictor.Hide()
 
 	if HasBall and Character and RootPart then
 		local power = GetChargePower()
@@ -279,6 +295,7 @@ function OnPossessionChanged(hasBall)
 		IsChargingGroundKick = false
 		IsChargingAirKick = false
 		ChargeBarUI.Hide()
+		TrajectoryPredictor.Hide()
 	end
 end
 
