@@ -18,20 +18,28 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- Dependencies (injected)
 local TeamManager = nil
 local NPCManager = nil
+local BallManager = nil
+
+-- Modules
+local AnimationData = require(ReplicatedStorage:WaitForChild("AnimationData"))
 
 -- Player tracking
 local PlayerSlots = {}  -- {[Player] = {Team = "Blue", SlotIndex = 1}}
+local TacklingPlayers = {} -- {[Player] = true}
 
 -- Remote Events
 local RemoteFolder = nil
 local JoinTeamRequest = nil
 local SwitchSlotRequest = nil
 local PlayerJoined = nil
+local TackleRequest = nil
+local SprintRequest = nil
 
 -- Initialize
-function PlayerController.Initialize(teamManager, npcManager)
+function PlayerController.Initialize(teamManager, npcManager, ballManager)
 	TeamManager = teamManager
 	NPCManager = npcManager
+	BallManager = ballManager
 
 	if not TeamManager or not NPCManager then
 		warn("[PlayerController] Missing required managers!")
@@ -58,9 +66,19 @@ function PlayerController.Initialize(teamManager, npcManager)
 	PlayerJoined.Name = "PlayerJoined"
 	PlayerJoined.Parent = RemoteFolder
 
+	TackleRequest = Instance.new("RemoteEvent")
+	TackleRequest.Name = "TackleRequest"
+	TackleRequest.Parent = RemoteFolder
+
+	SprintRequest = Instance.new("RemoteEvent")
+	SprintRequest.Name = "SprintRequest"
+	SprintRequest.Parent = RemoteFolder
+
 	-- Connect events
 	JoinTeamRequest.OnServerEvent:Connect(OnJoinTeamRequest)
 	SwitchSlotRequest.OnServerEvent:Connect(OnSwitchSlotRequest)
+	TackleRequest.OnServerEvent:Connect(OnTackleRequest)
+	SprintRequest.OnServerEvent:Connect(OnSprintRequest)
 
 	-- Handle player leaving
 	Players.PlayerRemoving:Connect(OnPlayerLeaving)
@@ -257,6 +275,19 @@ function SwitchPlayerSlot(player, teamName, newSlotIndex)
 	PlayerJoined:FireClient(player, teamName, newSlotIndex, newSlot.HomePosition)
 end
 
+-- Private: Handle sprint request
+function OnSprintRequest(player, isSprinting)
+	local character = player.Character
+	if not character then return end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+
+	-- Authoritative speed change
+	-- Sprint: 28, Normal: 23 (matching user specs)
+	humanoid.WalkSpeed = isSprinting and 28 or 23
+end
+
 -- Private: Handle player leaving
 function OnPlayerLeaving(player)
 	local playerData = PlayerSlots[player]
@@ -334,6 +365,100 @@ function PlayerController.ResetAllPlayersForNewMatch()
 	end
 
 	PlayerSlots = {}
+end
+
+-- Private: Handle tackle request from client
+function OnTackleRequest(player)
+	local character = player.Character
+	if not character then return end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	if not humanoid or not rootPart or humanoid.Health <= 0 then return end
+
+	-- Cooldown / Prevent multiple tackles
+	if TacklingPlayers[player] then return end
+	TacklingPlayers[player] = true
+
+	-- Find parts to check for collision during tackle
+	local components = {}
+	for _, child in pairs(character:GetChildren()) do
+		if child:IsA("BasePart") then
+			table.insert(components, child)
+		end
+	end
+
+	local hitTargets = {}
+	local connections = {}
+
+	-- Listen for hits during tackle window
+	for _, part in pairs(components) do
+		local conn = part.Touched:Connect(function(hit)
+			local targetChar = hit.Parent
+			if targetChar and targetChar ~= character and not hitTargets[targetChar] then
+				-- Check if hit player's shoes AND they have the ball
+				local targetHumanoid = targetChar:FindFirstChildOfClass("Humanoid")
+				if targetHumanoid and BallManager and BallManager.IsCharacterOwner(targetChar) then
+					hitTargets[targetChar] = true
+					-- Play reaction animation
+					PlayTackleReaction(targetChar)
+
+					-- Detach the ball
+					BallManager.DetachBall()
+				end
+			end
+		end)
+		table.insert(connections, conn)
+	end
+
+	-- Wait for tackle animation duration (roughly)
+	task.wait(1.5)
+
+	-- Cleanup
+	for _, conn in pairs(connections) do
+		conn:Disconnect()
+	end
+
+	-- Cooldown before next tackle
+	task.wait(1.5)
+	TacklingPlayers[player] = nil
+end
+
+-- Private: Play tackle reaction animation on a character
+function PlayTackleReaction(character)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not humanoid or not root then return end
+
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = humanoid
+	end
+
+	local anim = Instance.new("Animation")
+	anim.AnimationId = AnimationData.Defense.Tackle_Reaction
+
+	local track = animator:LoadAnimation(anim)
+	track.Looped = false
+
+	-- Anchor the player so they can't move during the reaction
+	root.Anchored = true
+
+	track.Ended:Connect(function()
+		if root and root.Parent then
+			root.Anchored = false
+		end
+	end)
+
+	track:Play()
+
+	-- Fallback unanchor in case Ended doesn't fire for some reason
+	task.delay(track.Length + 0.1, function()
+		if root and root.Parent and root.Anchored then
+			root.Anchored = false
+		end
+	end)
 end
 
 -- Cleanup

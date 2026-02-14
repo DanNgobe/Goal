@@ -498,9 +498,15 @@ function TeamManager.FreezeTeams(teamNames)
 		for _, slot in ipairs(slots) do
 			if slot.NPC and slot.NPC.Parent then
 				local humanoid = slot.NPC:FindFirstChildOfClass("Humanoid")
-				if humanoid then
+				local root = slot.NPC:FindFirstChild("HumanoidRootPart")
+				if humanoid and root then
 					humanoid.WalkSpeed = 0
-					humanoid:MoveTo(slot.NPC.HumanoidRootPart.Position)
+					humanoid:MoveTo(root.Position)
+					
+					-- Anchor ONLY players to ensure they are truly frozen during resets
+					if not slot.IsAI then
+						root.Anchored = true
+					end
 				end
 			end
 		end
@@ -517,8 +523,18 @@ function TeamManager.UnfreezeAllTeams()
 		for _, slot in ipairs(slots) do
 			if slot.NPC and slot.NPC.Parent then
 				local humanoid = slot.NPC:FindFirstChildOfClass("Humanoid")
-				if humanoid then
-					humanoid.WalkSpeed = 16  -- Default AI speed
+				local root = slot.NPC:FindFirstChild("HumanoidRootPart")
+				
+				if humanoid and root then
+					-- Always unanchor everyone when unfreezing
+					root.Anchored = false
+					
+					-- Restore appropriate walk speeds
+					if slot.IsAI then
+						humanoid.WalkSpeed = 16  -- Default AI speed
+					else
+						humanoid.WalkSpeed = 23  -- Normal player speed (matching stamina system)
+					end
 				end
 			end
 		end

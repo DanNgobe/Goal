@@ -30,16 +30,21 @@ local HasBall = false
 local IsChargingGroundKick = false
 local IsChargingAirKick = false
 local ChargeStartTime = 0
+local LastTackleTime = 0
 
 -- Remote Events
 local BallRemotes = nil
 local KickBall = nil
 local PossessionChanged = nil
 
+local PlayerRemotes = nil
+local TackleRequest = nil
+
 -- Settings
 local Settings = {
 	MaxChargeTime = 2,
 	MinPower = 0.3,
+	TackleCooldown = 4.0,
 
 	-- Kick Physics (must match server!)
 	GroundKickSpeed = 100,
@@ -67,6 +72,11 @@ function BallControlClient.Initialize()
 		return false
 	end
 
+	PlayerRemotes = ReplicatedStorage:WaitForChild("PlayerRemotes", 5)
+	if PlayerRemotes then
+		TackleRequest = PlayerRemotes:WaitForChild("TackleRequest", 5)
+	end
+
 	-- Create UI
 	local PlayerGui = Player:WaitForChild("PlayerGui")
 	local screenGui = PlayerGui:FindFirstChild("BallUI") or Instance.new("ScreenGui")
@@ -74,9 +84,9 @@ function BallControlClient.Initialize()
 	screenGui.ResetOnSpawn = false
 	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	screenGui.Parent = PlayerGui
-	
+
 	ChargeBarUI.Create(screenGui)
-	
+
 	-- Initialize trajectory predictor
 	TrajectoryPredictor.Initialize()
 
@@ -139,7 +149,7 @@ function SetupUpdateLoop()
 		if IsChargingGroundKick or IsChargingAirKick then
 			local power = GetChargePower()
 			ChargeBarUI.Update(power)
-			
+
 			-- Update trajectory prediction
 			if RootPart then
 				local direction = GetKickDirection()
@@ -296,6 +306,49 @@ function OnPossessionChanged(hasBall)
 		IsChargingAirKick = false
 		ChargeBarUI.Hide()
 		TrajectoryPredictor.Hide()
+	end
+end
+
+--------------------------------------------------------------------------------
+-- TACKLE ACTION
+--------------------------------------------------------------------------------
+
+function BallControlClient.Tackle()
+	if not Character or not Humanoid or not RootPart then return end
+
+	-- Don't tackle if we have the ball
+	if HasBall then return end
+
+	-- Cooldown check
+	if tick() - LastTackleTime < Settings.TackleCooldown then return end
+	LastTackleTime = tick()
+
+	-- Play animation locally
+	local animator = Humanoid:FindFirstChildOfClass("Animator")
+	if animator then
+		local anim = Instance.new("Animation")
+		anim.AnimationId = AnimationData.Defense.Tackle
+		local track = animator:LoadAnimation(anim)
+		track.Looped = false
+		track:Play()
+
+		-- Push RootPart down by adjusting HipHeight during the slide
+		local originalHipHeight = Humanoid.HipHeight
+		local originalWalkSpeed = Humanoid.WalkSpeed
+		Humanoid.HipHeight = 2.0 -- Lower to the ground for the slide
+		Humanoid.WalkSpeed *= 1.5 -- Reduce speed for the slide
+		-- Reset after animation roughly halfway or full duration
+		task.delay(1.0, function()
+			if Humanoid then
+				Humanoid.HipHeight = originalHipHeight
+				Humanoid.WalkSpeed = originalWalkSpeed
+			end
+		end)
+	end
+
+	-- Fire remote to server
+	if TackleRequest then
+		TackleRequest:FireServer()
 	end
 end
 

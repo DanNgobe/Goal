@@ -27,6 +27,7 @@ local Settings = {
 	Air_Kick_Height = 65,
 	Possession_Timeout = 0.5,
 	Touch_Cooldown = 0.5,
+	Max_Possession_Speed = 50,
 	Damping = 0.99
 }
 
@@ -387,7 +388,7 @@ end
 -- Check if a character can take possession
 function BallManager.CanTakePossession(character)
 	-- Ball is flying or moving too fast
-	if Ball:FindFirstChildOfClass("BodyVelocity") or Ball.AssemblyLinearVelocity.Magnitude > 20 then
+	if Ball:FindFirstChildOfClass("BodyVelocity") or Ball.AssemblyLinearVelocity.Magnitude > Settings.Max_Possession_Speed then
 		return false
 	end
 
@@ -398,6 +399,11 @@ function BallManager.CanTakePossession(character)
 
 	-- Check if someone else has recent possession
 	if CurrentOwnerCharacter and CurrentOwnerCharacter ~= character then
+		-- PROTECT GOALKEEPER POSSESSION: If current owner is GK, nobody else can take it
+		if IsGoalkeeper(CurrentOwnerCharacter) then
+			return false
+		end
+
 		if tick() - OwnershipStart < Settings.Possession_Timeout then
 			return false
 		end

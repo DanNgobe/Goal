@@ -79,7 +79,7 @@ function TeamJoinUI.Create(parent, cameraController)
 
 	local blueStroke = Instance.new("UIStroke")
 	blueStroke.Color = Color3.fromRGB(100, 180, 255)
-	blueStroke.Thickness = 3
+	blueStroke.Thickness = 1
 	blueStroke.Parent = blueButton
 
 	-- Red Team Button
@@ -101,7 +101,7 @@ function TeamJoinUI.Create(parent, cameraController)
 
 	local redStroke = Instance.new("UIStroke")
 	redStroke.Color = Color3.fromRGB(255, 130, 130)
-	redStroke.Thickness = 3
+	redStroke.Thickness = 1
 	redStroke.Parent = redButton
 
 	-- Hover animations for buttons

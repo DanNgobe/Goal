@@ -35,6 +35,11 @@ function OnInputBegan(input, gameProcessed)
 	if input.KeyCode == Enum.KeyCode.C then
 		-- Request slot switch
 		RequestSlotSwitch()
+	elseif input.KeyCode == Enum.KeyCode.Q then
+		-- Request tackle
+		if BallControlClient then
+			BallControlClient.Tackle()
+		end
 	end
 end
 

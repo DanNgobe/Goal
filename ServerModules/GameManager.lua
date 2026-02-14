@@ -104,7 +104,8 @@ function GameManager.Initialize()
 	-- Step 10: Initialize PlayerController
 	local playerSuccess = Managers.PlayerController.Initialize(
 		Managers.TeamManager,
-		Managers.NPCManager
+		Managers.NPCManager,
+		Managers.BallManager
 	)
 	if not playerSuccess then
 		warn("[GameManager] Failed to initialize PlayerController!")

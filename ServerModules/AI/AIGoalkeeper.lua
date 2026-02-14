@@ -281,25 +281,36 @@ end
 -- 4. DISTRIBUTION (THROW/KICK)
 --------------------------------------------------------------------------------
 
-function HandleDistribution(npc, humanoid, root, teamName, npcId)
+function HandleDistribution(npc, humanoid, root, bodyGyro, teamName, npcId)
 	local now = tick()
 	local delayStart = State.DistributionDelay[npcId]
 
 	if not delayStart then
 		State.DistributionDelay[npcId] = now
 		return
-	elseif now - delayStart < Settings.DistributionDelay then 
-		humanoid:MoveTo(root.Position)
-		return
 	end
 
 	-- Find best teammate to distribute to
 	local bestTarget = FindDistributionTarget(npc, root, teamName)
+	
+	-- MUST look at them first! Start rotating during the delay
+	if bestTarget and bodyGyro then
+		local dir = (bestTarget.Position - root.Position).Unit
+		local flatTarget = Vector3.new(dir.X, 0, dir.Z)
+		if flatTarget.Magnitude > 0 then
+			bodyGyro.CFrame = CFrame.lookAt(root.Position, root.Position + flatTarget.Unit)
+		end
+	end
+
+	if now - delayStart < Settings.DistributionDelay then 
+		humanoid:MoveTo(root.Position)
+		return
+	end
 
 	if bestTarget then
 		State.DistributionDelay[npcId] = nil
 
-		-- Face the target
+		-- Final rotation adjustment
 		local dir = (bestTarget.Position - root.Position).Unit
 		root.CFrame = CFrame.lookAt(root.Position, root.Position + dir)
 
@@ -516,7 +527,7 @@ function UpdateGoalkeeperState(npc, humanoid, root, bodyGyro, slot, teamName, np
 		if not State.DistributionDelay[npcId] then
 			State.DistributionDelay[npcId] = tick()
 		end
-		HandleDistribution(npc, humanoid, root, teamName, npcId)
+		HandleDistribution(npc, humanoid, root, bodyGyro, teamName, npcId)
 		return
 	else
 		-- Clear distribution delay when ball is lost
