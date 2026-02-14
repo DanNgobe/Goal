@@ -12,7 +12,7 @@ A simplified tactical soccer game where NPCs are the primary players and human p
 - **Players control NPCs** - Human players possess and switch between NPCs on their team
 - **Formation-based** - Each NPC has a designated position (GK, defenders, midfielders, forwards)
 - **Tactical AI** - When not controlled by players, NPCs follow simple tactical rules
-- **5v5 gameplay** - Blue team vs Red team
+- **5v5 gameplay** - HomeTeam team vs AwayTeam team
 
 ---
 
@@ -62,7 +62,7 @@ StarterPlayer/StarterPlayerScripts/
 - Handles NPC respawning if needed
 
 ### **TeamManager.lua**
-- Manages Blue and Red team data structures
+- Manages HomeTeam and AwayTeam team data structures
 - Tracks which slots are AI vs Player-controlled
 - Handles team assignment and auto-balancing
 - Stores team scores and goal references
@@ -185,8 +185,8 @@ Workspace/
 ```
 ServerStorage/
 └── NPCs (Folder)
-    ├── Blue (R15 Character Model)
-    └── Red (R15 Character Model)
+    ├── HomeTeam (R15 Character Model)
+    └── AwayTeam (R15 Character Model)
 ```
 
 ---
@@ -194,7 +194,7 @@ ServerStorage/
 ## 🎨 Formation Layout (5v5)
 
 ```
-                    [BLUE GOAL]
+                    [HomeTeam GOAL]
                         GK
             LB                      RB
                  LCM         RCM
@@ -206,7 +206,7 @@ ServerStorage/
                  LCM         RCM
             LB                      RB
                         GK
-                    [RED GOAL]
+                    [AwayTeam GOAL]
 ```
 
 **Roles:**

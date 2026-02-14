@@ -65,23 +65,23 @@ local function CreateMarker(position, color, label)
 	return part
 end
 
--- Test Blue Team positions
-print("\n=== TESTING BLUE TEAM POSITIONS ===")
+-- Test HomeTeam Team positions
+print("\n=== TESTING HomeTeam TEAM POSITIONS ===")
 local formation = FormationData.GetFormation()
 local blueColor = Color3.fromRGB(0, 100, 255)
 
 for _, posData in ipairs(formation) do
-	local worldPos = NPCManager.CalculateWorldPosition("Blue", posData.Position)
+	local worldPos = NPCManager.CalculateWorldPosition("HomeTeam", posData.Position)
 	CreateMarker(worldPos, blueColor, "Blue_" .. posData.Role)
 	print(string.format("  %s: %s", posData.Role, tostring(worldPos)))
 end
 
--- Test Red Team positions
-print("\n=== TESTING RED TEAM POSITIONS ===")
+-- Test AwayTeam Team positions
+print("\n=== TESTING AwayTeam TEAM POSITIONS ===")
 local redColor = Color3.fromRGB(255, 50, 50)
 
 for _, posData in ipairs(formation) do
-	local worldPos = NPCManager.CalculateWorldPosition("Red", posData.Position)
+	local worldPos = NPCManager.CalculateWorldPosition("AwayTeam", posData.Position)
 	CreateMarker(worldPos, redColor, "Red_" .. posData.Role)
 	print(string.format("  %s: %s", posData.Role, tostring(worldPos)))
 end
@@ -91,5 +91,5 @@ CreateMarker(center + Vector3.new(0, 3, 0), Color3.fromRGB(255, 255, 0), "CENTER
 
 print("\n=== FORMATION TEST COMPLETE ===")
 print("Check the workspace for colored markers showing NPC positions.")
-print("Blue team on one side, Red team on the other.")
+print("HomeTeam team on one side, AwayTeam team on the other.")
 print("DELETE this script after verifying positions look correct!")

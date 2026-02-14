@@ -7,8 +7,13 @@ local TeamJoinUI = {}
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+-- Load TeamColorHelper
+local TeamColorHelper = require(script.Parent.Parent:WaitForChild("TeamColorHelper"))
+
 -- UI Elements
 local JoinPanel = nil
+local BlueButton = nil
+local RedButton = nil
 
 -- Callbacks
 local OnTeamSelected = nil
@@ -60,49 +65,49 @@ function TeamJoinUI.Create(parent, cameraController)
 	titleStroke.Thickness = 3
 	titleStroke.Parent = title
 
-	-- Blue Team Button
-	local blueButton = Instance.new("TextButton")
-	blueButton.Name = "BlueButton"
-	blueButton.Size = UDim2.new(0.42, 0, 0.55, 0)
-	blueButton.Position = UDim2.new(0.05, 0, 0.38, 0)
-	blueButton.BackgroundColor3 = Color3.fromRGB(30, 130, 255)
-	blueButton.BorderSizePixel = 0
-	blueButton.Font = Enum.Font.GothamBold
-	blueButton.TextScaled = true
-	blueButton.TextColor3 = Color3.new(1, 1, 1)
-	blueButton.Text = "BLUE"
-	blueButton.Parent = JoinPanel
+	-- HomeTeam Team Button
+	BlueButton = Instance.new("TextButton")
+	BlueButton.Name = "BlueButton"
+	BlueButton.Size = UDim2.new(0.42, 0, 0.55, 0)
+	BlueButton.Position = UDim2.new(0.05, 0, 0.38, 0)
+	BlueButton.BackgroundColor3 = TeamColorHelper.GetTeamColor("HomeTeam")
+	BlueButton.BorderSizePixel = 0
+	BlueButton.Font = Enum.Font.GothamBold
+	BlueButton.TextScaled = true
+	BlueButton.TextColor3 = Color3.new(1, 1, 1)
+	BlueButton.Text = TeamColorHelper.GetTeamName("HomeTeam")
+	BlueButton.Parent = JoinPanel
 
 	local blueCorner = Instance.new("UICorner")
 	blueCorner.CornerRadius = UDim.new(0.2, 0)
-	blueCorner.Parent = blueButton
+	blueCorner.Parent = BlueButton
 
 	local blueStroke = Instance.new("UIStroke")
-	blueStroke.Color = Color3.fromRGB(100, 180, 255)
+	blueStroke.Color = TeamColorHelper.GetLightTeamColor("HomeTeam")
 	blueStroke.Thickness = 1
-	blueStroke.Parent = blueButton
+	blueStroke.Parent = BlueButton
 
-	-- Red Team Button
-	local redButton = Instance.new("TextButton")
-	redButton.Name = "RedButton"
-	redButton.Size = UDim2.new(0.42, 0, 0.55, 0)
-	redButton.Position = UDim2.new(0.53, 0, 0.38, 0)
-	redButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-	redButton.BorderSizePixel = 0
-	redButton.Font = Enum.Font.GothamBold
-	redButton.TextScaled = true
-	redButton.TextColor3 = Color3.new(1, 1, 1)
-	redButton.Text = "RED"
-	redButton.Parent = JoinPanel
+	-- AwayTeam Team Button
+	RedButton = Instance.new("TextButton")
+	RedButton.Name = "RedButton"
+	RedButton.Size = UDim2.new(0.42, 0, 0.55, 0)
+	RedButton.Position = UDim2.new(0.53, 0, 0.38, 0)
+	RedButton.BackgroundColor3 = TeamColorHelper.GetTeamColor("AwayTeam")
+	RedButton.BorderSizePixel = 0
+	RedButton.Font = Enum.Font.GothamBold
+	RedButton.TextScaled = true
+	RedButton.TextColor3 = Color3.new(1, 1, 1)
+	RedButton.Text = TeamColorHelper.GetTeamName("AwayTeam")
+	RedButton.Parent = JoinPanel
 
 	local redCorner = Instance.new("UICorner")
 	redCorner.CornerRadius = UDim.new(0.2, 0)
-	redCorner.Parent = redButton
+	redCorner.Parent = RedButton
 
 	local redStroke = Instance.new("UIStroke")
-	redStroke.Color = Color3.fromRGB(255, 130, 130)
+	redStroke.Color = TeamColorHelper.GetLightTeamColor("AwayTeam")
 	redStroke.Thickness = 1
-	redStroke.Parent = redButton
+	redStroke.Parent = RedButton
 
 	-- Hover animations for buttons
 	local function setupButtonAnimation(button)
@@ -123,15 +128,15 @@ function TeamJoinUI.Create(parent, cameraController)
 		end)
 	end
 	
-	setupButtonAnimation(blueButton)
-	setupButtonAnimation(redButton)
+	setupButtonAnimation(BlueButton)
+	setupButtonAnimation(RedButton)
 
 	-- Button events
 	local playerRemotes = ReplicatedStorage:WaitForChild("PlayerRemotes")
 	local joinTeamRequest = playerRemotes:WaitForChild("JoinTeamRequest")
 
-	blueButton.MouseButton1Click:Connect(function()
-		joinTeamRequest:FireServer("Blue")
+	BlueButton.MouseButton1Click:Connect(function()
+		joinTeamRequest:FireServer("HomeTeam")
 		JoinPanel.Visible = false
 
 		-- Lock mouse when team is selected
@@ -140,8 +145,8 @@ function TeamJoinUI.Create(parent, cameraController)
 		end
 	end)
 
-	redButton.MouseButton1Click:Connect(function()
-		joinTeamRequest:FireServer("Red")
+	RedButton.MouseButton1Click:Connect(function()
+		joinTeamRequest:FireServer("AwayTeam")
 		JoinPanel.Visible = false
 
 		-- Lock mouse when team is selected
@@ -171,6 +176,29 @@ function TeamJoinUI.Hide()
 	if JoinPanel then
 		JoinPanel.Visible = false
 	end
+end
+
+-- Update team colors (called when teams change)
+function TeamJoinUI.UpdateTeamColors()
+	if BlueButton then
+		BlueButton.BackgroundColor3 = TeamColorHelper.GetTeamColor("HomeTeam")
+		BlueButton.Text = TeamColorHelper.GetTeamName("HomeTeam")
+		local blueStroke = BlueButton:FindFirstChildOfClass("UIStroke")
+		if blueStroke then
+			blueStroke.Color = TeamColorHelper.GetLightTeamColor("HomeTeam")
+		end
+	end
+	
+	if RedButton then
+		RedButton.BackgroundColor3 = TeamColorHelper.GetTeamColor("AwayTeam")
+		RedButton.Text = TeamColorHelper.GetTeamName("AwayTeam")
+		local redStroke = RedButton:FindFirstChildOfClass("UIStroke")
+		if redStroke then
+			redStroke.Color = TeamColorHelper.GetLightTeamColor("AwayTeam")
+		end
+	end
+	
+	print("[TeamJoinUI] Updated team colors")
 end
 
 return TeamJoinUI

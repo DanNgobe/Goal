@@ -24,7 +24,7 @@ local BallManager = nil
 local AnimationData = require(ReplicatedStorage:WaitForChild("AnimationData"))
 
 -- Player tracking
-local PlayerSlots = {}  -- {[Player] = {Team = "Blue", SlotIndex = 1}}
+local PlayerSlots = {}  -- {[Player] = {Team = "HomeTeam", SlotIndex = 1}}
 local TacklingPlayers = {} -- {[Player] = true}
 
 -- Remote Events
@@ -96,7 +96,7 @@ function OnJoinTeamRequest(player, requestedTeam)
 
 	-- Auto-balance if no team specified
 	local teamName = requestedTeam
-	if not teamName or (teamName ~= "Blue" and teamName ~= "Red") then
+	if not teamName or (teamName ~= "HomeTeam" and teamName ~= "AwayTeam") then
 		teamName = TeamManager.GetSmallerTeam()
 	end
 
@@ -156,6 +156,11 @@ function AssignPlayerToSlot(player, teamName, slotIndex)
 		Team = teamName,
 		SlotIndex = slotIndex
 	}
+
+	-- Apply team colors to player character
+	if player.Character and NPCManager then
+		NPCManager.ApplyTeamColors(player.Character, teamName)
+	end
 
 	-- Move player character to slot position
 	if player.Character and slot.HomePosition then
@@ -245,16 +250,10 @@ function SwitchPlayerSlot(player, teamName, newSlotIndex)
 	end
 
 	-- Spawn NPC back in old slot at player's current position
-	local npcTemplate = game:GetService("ServerStorage"):FindFirstChild("NPCs")
-	if npcTemplate then
-		local teamTemplate = npcTemplate:FindFirstChild(teamName)
-		if teamTemplate then
-			local npcData = NPCManager.SpawnNPC(teamTemplate, teamName, oldSlot.Role, playerCurrentPosition)
-			if npcData then
-				oldSlot.NPC = npcData.Model
-				oldSlot.IsAI = true
-			end
-		end
+	local npcData = NPCManager.SpawnNPC(teamName, oldSlot.Role, playerCurrentPosition)
+	if npcData then
+		oldSlot.NPC = npcData.Model
+		oldSlot.IsAI = true
 	end
 
 	-- Update new slot with player
@@ -298,16 +297,10 @@ function OnPlayerLeaving(player)
 	local slot = slots[playerData.SlotIndex]
 
 	if slot then
-		local npcTemplate = game:GetService("ServerStorage"):FindFirstChild("NPCs")
-		if npcTemplate then
-			local teamTemplate = npcTemplate:FindFirstChild(playerData.Team)
-			if teamTemplate then
-				local npcData = NPCManager.SpawnNPC(teamTemplate, playerData.Team, slot.Role, slot.HomePosition)
-				if npcData then
-					slot.NPC = npcData.Model
-					slot.IsAI = true
-				end
-			end
+		local npcData = NPCManager.SpawnNPC(playerData.Team, slot.Role, slot.HomePosition)
+		if npcData then
+			slot.NPC = npcData.Model
+			slot.IsAI = true
 		end
 	end
 
@@ -346,20 +339,12 @@ function PlayerController.ResetAllPlayersForNewMatch()
 
 		local slots = TeamManager.GetTeamSlots(data.Team)
 		local slot = slots[data.SlotIndex]
-		if slot then
-			local npcTemplate = game:GetService("ServerStorage"):FindFirstChild("NPCs")
-			if npcTemplate then
-				local teamTemplate = npcTemplate:FindFirstChild(data.Team)
-				if teamTemplate then
-					local spawnPos = slot.HomePosition
-					if NPCManager and teamTemplate then
-						local npcData = NPCManager.SpawnNPC(teamTemplate, data.Team, slot.Role, spawnPos)
-						if npcData then
-							slot.NPC = npcData.Model
-							slot.IsAI = true
-						end
-					end
-				end
+		if slot and NPCManager then
+			local spawnPos = slot.HomePosition
+			local npcData = NPCManager.SpawnNPC(data.Team, slot.Role, spawnPos)
+			if npcData then
+				slot.NPC = npcData.Model
+				slot.IsAI = true
 			end
 		end
 	end

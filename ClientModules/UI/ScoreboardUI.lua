@@ -6,6 +6,10 @@
 local ScoreboardUI = {}
 
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Load TeamColorHelper
+local TeamColorHelper = require(script.Parent.Parent:WaitForChild("TeamColorHelper"))
 
 -- UI Elements
 local ScoreboardFrame = nil
@@ -48,12 +52,12 @@ function ScoreboardUI.Create(parent)
 	stroke.Transparency = 0.4
 	stroke.Parent = ScoreboardFrame
 
-	-- Blue Score Label (left side)
+	-- HomeTeam Score Label (left side)
 	BlueScoreLabel = Instance.new("TextLabel")
 	BlueScoreLabel.Name = "BlueScore"
 	BlueScoreLabel.Size = UDim2.new(0, 50, 0, 35)
 	BlueScoreLabel.Position = UDim2.new(0, 10, 0.5, -17.5)
-	BlueScoreLabel.BackgroundColor3 = Color3.fromRGB(30, 130, 255)
+	BlueScoreLabel.BackgroundColor3 = TeamColorHelper.GetTeamColor("HomeTeam")
 	BlueScoreLabel.BackgroundTransparency = 0.2
 	BlueScoreLabel.BorderSizePixel = 0
 	BlueScoreLabel.Font = Enum.Font.GothamBold
@@ -67,7 +71,7 @@ function ScoreboardUI.Create(parent)
 	blueCorner.Parent = BlueScoreLabel
 
 	local blueStroke = Instance.new("UIStroke")
-	blueStroke.Color = Color3.fromRGB(100, 180, 255)
+	blueStroke.Color = TeamColorHelper.GetLightTeamColor("HomeTeam")
 	blueStroke.Thickness = 2
 	blueStroke.Parent = BlueScoreLabel
 
@@ -89,12 +93,12 @@ function ScoreboardUI.Create(parent)
 	timerCorner.CornerRadius = UDim.new(0, 8)
 	timerCorner.Parent = TimerLabel
 
-	-- Red Score Label (right side)
+	-- AwayTeam Score Label (right side)
 	RedScoreLabel = Instance.new("TextLabel")
 	RedScoreLabel.Name = "RedScore"
 	RedScoreLabel.Size = UDim2.new(0, 50, 0, 35)
 	RedScoreLabel.Position = UDim2.new(1, -60, 0.5, -17.5)
-	RedScoreLabel.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+	RedScoreLabel.BackgroundColor3 = TeamColorHelper.GetTeamColor("AwayTeam")
 	RedScoreLabel.BackgroundTransparency = 0.2
 	RedScoreLabel.BorderSizePixel = 0
 	RedScoreLabel.Font = Enum.Font.GothamBold
@@ -108,7 +112,7 @@ function ScoreboardUI.Create(parent)
 	redCorner.Parent = RedScoreLabel
 
 	local redStroke = Instance.new("UIStroke")
-	redStroke.Color = Color3.fromRGB(255, 130, 130)
+	redStroke.Color = TeamColorHelper.GetLightTeamColor("AwayTeam")
 	redStroke.Thickness = 2
 	redStroke.Parent = RedScoreLabel
 
@@ -164,6 +168,27 @@ function ScoreboardUI.UpdateTimer(timeRemaining)
 		TimerLabel.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
 		TimerLabel.TextColor3 = Color3.fromRGB(20, 20, 30)
 	end
+end
+
+-- Update team colors (called when teams change)
+function ScoreboardUI.UpdateTeamColors()
+	if BlueScoreLabel then
+		BlueScoreLabel.BackgroundColor3 = TeamColorHelper.GetTeamColor("HomeTeam")
+		local blueStroke = BlueScoreLabel:FindFirstChildOfClass("UIStroke")
+		if blueStroke then
+			blueStroke.Color = TeamColorHelper.GetLightTeamColor("HomeTeam")
+		end
+	end
+	
+	if RedScoreLabel then
+		RedScoreLabel.BackgroundColor3 = TeamColorHelper.GetTeamColor("AwayTeam")
+		local redStroke = RedScoreLabel:FindFirstChildOfClass("UIStroke")
+		if redStroke then
+			redStroke.Color = TeamColorHelper.GetLightTeamColor("AwayTeam")
+		end
+	end
+	
+	print("[ScoreboardUI] Updated team colors")
 end
 
 return ScoreboardUI

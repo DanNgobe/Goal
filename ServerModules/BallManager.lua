@@ -117,24 +117,24 @@ end
 
 -- Private: Setup goal zone detection
 function BallManager._SetupGoalDetection()
-	-- Blue Goal detection
+	-- HomeTeam Goal detection
 	local blueConnection = BlueGoal.Touched:Connect(function(hit)
 		if hit == Ball and TeamManager then
 			-- Reset ball immediately
 			BallManager.ResetBallToCenter()
 			-- Notify TeamManager with scorer info
-			TeamManager.OnGoalScored("Red", LastKickerCharacter)  -- Red scores in Blue's goal
+			TeamManager.OnGoalScored("AwayTeam", LastKickerCharacter)  -- AwayTeam scores in HomeTeam's goal
 		end
 	end)
 	table.insert(GoalTouchConnections, blueConnection)
 
-	-- Red Goal detection
+	-- AwayTeam Goal detection
 	local redConnection = RedGoal.Touched:Connect(function(hit)
 		if hit == Ball and TeamManager then
 			-- Reset ball immediately
 			BallManager.ResetBallToCenter()
 			-- Notify TeamManager with scorer info
-			TeamManager.OnGoalScored("Blue", LastKickerCharacter)  -- Blue scores in Red's goal
+			TeamManager.OnGoalScored("HomeTeam", LastKickerCharacter)  -- HomeTeam scores in AwayTeam's goal
 		end
 	end)
 	table.insert(GoalTouchConnections, redConnection)

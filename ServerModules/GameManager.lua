@@ -55,6 +55,11 @@ function GameManager.Initialize()
 		return false
 	end
 
+	-- Step 4.5: Set up random match teams
+	Managers.NPCManager.SetRandomMatchTeams()
+	local matchTeams = Managers.NPCManager.GetMatchTeams()
+	print(string.format("[GameManager] Match: %s vs %s", matchTeams.HomeTeam, matchTeams.AwayTeam))
+
 	-- Step 5: Initialize TeamManager
 	local teamSuccess = Managers.TeamManager.Initialize(
 		WorkspaceRefs.BlueGoal, 
@@ -68,12 +73,12 @@ function GameManager.Initialize()
 	end
 
 	-- Step 6: Spawn NPCs for both teams
-	local blueNPCs = Managers.NPCManager.SpawnTeamNPCs("Blue")
-	local redNPCs = Managers.NPCManager.SpawnTeamNPCs("Red")
+	local blueNPCs = Managers.NPCManager.SpawnTeamNPCs("HomeTeam")
+	local redNPCs = Managers.NPCManager.SpawnTeamNPCs("AwayTeam")
 
 	-- Step 7: Setup team slots with spawned NPCs
-	Managers.TeamManager.SetupTeamSlots("Blue", blueNPCs)
-	Managers.TeamManager.SetupTeamSlots("Red", redNPCs)
+	Managers.TeamManager.SetupTeamSlots("HomeTeam", blueNPCs)
+	Managers.TeamManager.SetupTeamSlots("AwayTeam", redNPCs)
 
 	-- Step 8: Initialize BallManager with goals
 	local fieldCenter = Managers.NPCManager.GetFieldCenter()
@@ -258,14 +263,14 @@ function GameManager.EndMatch()
 	CurrentState = GameState.Ended
 
 	-- Determine winning team
-	local blueScore = Managers.TeamManager and Managers.TeamManager.GetScore("Blue") or 0
-	local redScore = Managers.TeamManager and Managers.TeamManager.GetScore("Red") or 0
+	local blueScore = Managers.TeamManager and Managers.TeamManager.GetScore("HomeTeam") or 0
+	local redScore = Managers.TeamManager and Managers.TeamManager.GetScore("AwayTeam") or 0
 	local winningTeam = "Draw"
 
 	if blueScore > redScore then
-		winningTeam = "Blue"
+		winningTeam = "HomeTeam"
 	elseif redScore > blueScore then
-		winningTeam = "Red"
+		winningTeam = "AwayTeam"
 	end
 
 	-- Notify all clients
@@ -282,7 +287,7 @@ function GameManager.EndMatch()
 
 	-- Freeze all players
 	if Managers.TeamManager then
-		Managers.TeamManager.FreezeTeams({"Blue", "Red"})
+		Managers.TeamManager.FreezeTeams({"HomeTeam", "AwayTeam"})
 	end
 
 	-- Reset players: restore NPCs to slots and kill player characters
@@ -305,6 +310,43 @@ function GameManager.EndMatch()
 	-- Reset scores
 	if Managers.TeamManager then
 		Managers.TeamManager.ResetScores()
+	end
+
+	-- ========================================
+	-- SELECT NEW RANDOM TEAMS FOR NEXT MATCH
+	-- ========================================
+	print("[GameManager] Selecting new teams for next match...")
+	
+	if Managers.NPCManager then
+		-- Clear all existing NPCs
+		Managers.NPCManager.ClearAllNPCs()
+		
+		-- Select new random teams
+		Managers.NPCManager.SetRandomMatchTeams()
+		local matchTeams = Managers.NPCManager.GetMatchTeams()
+		print(string.format("[GameManager] Next match: %s vs %s", matchTeams.HomeTeam, matchTeams.AwayTeam))
+		
+		-- Respawn NPCs with new team colors
+		local blueNPCs = Managers.NPCManager.SpawnTeamNPCs("HomeTeam")
+		local redNPCs = Managers.NPCManager.SpawnTeamNPCs("AwayTeam")
+		
+		-- Setup team slots with new NPCs
+		if Managers.TeamManager then
+			Managers.TeamManager.SetupTeamSlots("HomeTeam", blueNPCs)
+			Managers.TeamManager.SetupTeamSlots("AwayTeam", redNPCs)
+		end
+		
+		-- Reinitialize AIController with new NPCs
+		if Managers.AIController then
+			Managers.AIController.Cleanup()
+			Managers.AIController.Initialize(
+				Managers.TeamManager,
+				Managers.NPCManager,
+				Managers.BallManager,
+				Managers.FormationData
+			)
+			print("[GameManager] AI reinitialized for new teams")
+		end
 	end
 
 	-- Unfreeze all teams for the new match

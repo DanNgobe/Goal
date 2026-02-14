@@ -6,6 +6,10 @@
 local IntermissionUI = {}
 
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Load TeamColorHelper
+local TeamColorHelper = require(script.Parent.Parent:WaitForChild("TeamColorHelper"))
 
 -- UI Elements
 local IntermissionFrame = nil
@@ -67,7 +71,7 @@ function IntermissionUI.Create(parent)
 	SubText.Font = Enum.Font.Gotham
 	SubText.TextScaled = true
 	SubText.TextColor3 = Color3.fromRGB(255, 215, 0)
-	SubText.Text = "Blue Team Scored!"
+	SubText.Text = "HomeTeam Team Scored!"
 	SubText.Parent = IntermissionFrame
 
 	local subStroke = Instance.new("UIStroke")
@@ -80,11 +84,12 @@ end
 
 -- Show goal celebration
 function IntermissionUI.ShowGoal(scoringTeam)
-	local teamColor = scoringTeam == "Blue" and Color3.fromRGB(30, 130, 255) or Color3.fromRGB(255, 60, 60)
+	local teamColor = TeamColorHelper.GetTeamColor(scoringTeam)
+	local teamName = TeamColorHelper.GetTeamName(scoringTeam)
 	
 	GoalText.TextColor3 = teamColor
 	GoalText.Text = "⚽ GOAL! ⚽"
-	SubText.Text = string.format("%s TEAM SCORED!", scoringTeam:upper())
+	SubText.Text = string.format("%s SCORED!", teamName:upper())
 	SubText.TextColor3 = teamColor
 
 	IntermissionFrame.Visible = true
@@ -137,12 +142,14 @@ function IntermissionUI.ShowMatchEnd(winningTeam, blueScore, redScore)
 	local winnerText = ""
 	local winnerColor = Color3.new(1, 1, 1)
 
-	if winningTeam == "Blue" then
-		winnerText = "🏆 BLUE TEAM WINS! 🏆"
-		winnerColor = Color3.fromRGB(30, 130, 255)
-	elseif winningTeam == "Red" then
-		winnerText = "🏆 RED TEAM WINS! 🏆"
-		winnerColor = Color3.fromRGB(255, 60, 60)
+	if winningTeam == "HomeTeam" then
+		local teamName = TeamColorHelper.GetTeamName("HomeTeam")
+		winnerText = string.format("🏆 %s WINS! 🏆", teamName:upper())
+		winnerColor = TeamColorHelper.GetTeamColor("HomeTeam")
+	elseif winningTeam == "AwayTeam" then
+		local teamName = TeamColorHelper.GetTeamName("AwayTeam")
+		winnerText = string.format("🏆 %s WINS! 🏆", teamName:upper())
+		winnerColor = TeamColorHelper.GetTeamColor("AwayTeam")
 	else
 		winnerText = "⚖️ DRAW! ⚖️"
 		winnerColor = Color3.fromRGB(255, 215, 0)

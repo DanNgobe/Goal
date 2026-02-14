@@ -15,6 +15,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- UI Modules
+local TeamColorHelper = require(script.Parent.TeamColorHelper)
 local ScoreboardUI = require(script.Parent.UI.ScoreboardUI)
 local IntermissionUI = require(script.Parent.UI.IntermissionUI)
 local TeamJoinUI = require(script.Parent.UI.TeamJoinUI)
@@ -32,6 +33,16 @@ local TeamJoinPanel = nil
 -- Initialize the UI Controller
 function UIController.Initialize(cameraController)
 	CameraController = cameraController
+
+	-- Initialize TeamColorHelper first
+	TeamColorHelper.Initialize()
+	
+	-- Register callback for team changes
+	TeamColorHelper.OnTeamsChange(function()
+		print("[UIController] Teams changed, updating UI colors")
+		ScoreboardUI.UpdateTeamColors()
+		TeamJoinUI.UpdateTeamColors()
+	end)
 
 	-- Create main ScreenGui
 	ScreenGui = Instance.new("ScreenGui")

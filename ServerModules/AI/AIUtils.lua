@@ -120,7 +120,7 @@ end
 function AIUtils.FindCharacterTeam(character)
 	if not NPCManager or not TeamManager then return nil end
 
-	for _, teamName in ipairs({"Blue", "Red"}) do
+	for _, teamName in ipairs({"HomeTeam", "AwayTeam"}) do
 		local npcs = NPCManager.GetTeamNPCs(teamName)
 		for _, npcData in ipairs(npcs) do
 			if npcData.Model == character then return teamName end
@@ -141,7 +141,7 @@ end
 
 -- Get opposite team
 function AIUtils.GetOppositeTeam(teamName)
-	return teamName == "Blue" and "Red" or "Blue"
+	return teamName == "HomeTeam" and "AwayTeam" or "HomeTeam"
 end
 
 -- Get opponent goal position

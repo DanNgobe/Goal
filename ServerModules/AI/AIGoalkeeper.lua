@@ -438,7 +438,7 @@ function UpdateRotations()
 
 	-- Check for goalkeeper slot changes and re-register as needed
 	if TeamManager then
-		for _, teamName in ipairs({"Blue", "Red"}) do
+		for _, teamName in ipairs({"HomeTeam", "AwayTeam"}) do
 			local slots = TeamManager.GetAISlots(teamName)
 			for _, slot in ipairs(slots) do
 				if slot.Role == "GK" then

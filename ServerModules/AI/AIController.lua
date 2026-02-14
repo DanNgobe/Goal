@@ -27,8 +27,8 @@ local FormationData = nil
 -- State
 local State = {
 	LastUpdate = 0,
-	Formations = {Blue = "Neutral", Red = "Neutral"},
-	BallRoles = {Blue = {}, Red = {}},
+	Formations = {HomeTeam = "Neutral", AwayTeam = "Neutral"},
+	BallRoles = {HomeTeam = {}, AwayTeam = {}},
 	LastRoleUpdate = 0
 }
 
@@ -69,8 +69,8 @@ function AIController.Initialize(teamManager, npcManager, ballManager, formation
 	end
 
 	-- Initialize role structures
-	State.BallRoles.Blue = {Chaser = nil, SecondPress = nil, GoalCover = nil, Supporters = {}}
-	State.BallRoles.Red = {Chaser = nil, SecondPress = nil, GoalCover = nil, Supporters = {}}
+	State.BallRoles.HomeTeam = {Chaser = nil, SecondPress = nil, GoalCover = nil, Supporters = {}}
+	State.BallRoles.AwayTeam = {Chaser = nil, SecondPress = nil, GoalCover = nil, Supporters = {}}
 
 	-- Connect to possession changes
 	if BallManager then
@@ -80,7 +80,7 @@ function AIController.Initialize(teamManager, npcManager, ballManager, formation
 	end
 
 	-- Register all goalkeepers with their slots
-	for _, teamName in ipairs({"Blue", "Red"}) do
+	for _, teamName in ipairs({"HomeTeam", "AwayTeam"}) do
 		local slots = TeamManager.GetAISlots(teamName)
 		for _, slot in ipairs(slots) do
 			if slot.Role == "GK" then
@@ -119,8 +119,8 @@ function AIController.SetFormation(teamName, formationType)
 end
 
 function AIController.SetBothFormations(formationType)
-	AIController.SetFormation("Blue", formationType)
-	AIController.SetFormation("Red", formationType)
+	AIController.SetFormation("HomeTeam", formationType)
+	AIController.SetFormation("AwayTeam", formationType)
 end
 
 function UpdateTeamHomePositions(teamName)
@@ -157,7 +157,7 @@ function UpdateBallRoles()
 	local ballPos = ball.Position
 	local ballOwner = BallManager and BallManager.GetCurrentOwner() or nil
 
-	for _, teamName in ipairs({"Blue", "Red"}) do
+	for _, teamName in ipairs({"HomeTeam", "AwayTeam"}) do
 		if ballOwner and AIUtils.IsTeammate(ballOwner, teamName) then
 			-- Our team has the ball - assign attacking roles
 			AssignAttackingRoles(teamName, ballPos, ballOwner)
@@ -326,7 +326,7 @@ function GetPositionCrowdedness(position, teamName)
 end
 
 function ClearBallRoles()
-	for _, teamName in ipairs({"Blue", "Red"}) do
+	for _, teamName in ipairs({"HomeTeam", "AwayTeam"}) do
 		State.BallRoles[teamName].Chaser = nil
 		State.BallRoles[teamName].SecondPress = nil
 		State.BallRoles[teamName].GoalCover = nil
@@ -369,7 +369,7 @@ end
 function UpdateAllAI()
 	if TeamManager and TeamManager.IsProcessingGoal() then return end
 
-	for _, teamName in ipairs({"Blue", "Red"}) do
+	for _, teamName in ipairs({"HomeTeam", "AwayTeam"}) do
 		if TeamManager and TeamManager.IsTeamFrozen(teamName) then continue end
 
 		local slots = TeamManager.GetAISlots(teamName)
@@ -401,8 +401,8 @@ function AIController.ForceFormationUpdate(teamName, formationType)
 end
 
 function AIController.RefreshAllPositions()
-	UpdateTeamHomePositions("Blue")
-	UpdateTeamHomePositions("Red")
+	UpdateTeamHomePositions("HomeTeam")
+	UpdateTeamHomePositions("AwayTeam")
 end
 
 function AIController.Cleanup()

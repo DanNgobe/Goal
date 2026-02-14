@@ -3,7 +3,7 @@
 	Manages team structure, slots, and player assignments.
 	
 	Responsibilities:
-	- Manage Blue and Red team data
+	- Manage HomeTeam and AwayTeam team data
 	- Track which slots are NPC vs Player-controlled
 	- Team assignment (auto-balance)
 	- Store team colors, spawn points, goal references
@@ -18,26 +18,26 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Team data structure
 local Teams = {
-	Blue = {
-		Name = "Blue",
+	HomeTeam = {
+		Name = "HomeTeam",
 		Color = Color3.fromRGB(0, 100, 255),
 		Slots = {},  -- Will be populated with NPCs
 		Score = 0,
 		GoalPart = nil,
-		Side = "Blue"  -- For position calculations
+		Side = "HomeTeam"  -- For position calculations
 	},
-	Red = {
-		Name = "Red",
+	AwayTeam = {
+		Name = "AwayTeam",
 		Color = Color3.fromRGB(255, 50, 50),
 		Slots = {},
 		Score = 0,
 		GoalPart = nil,
-		Side = "Red"
+		Side = "AwayTeam"
 	}
 }
 
 -- Track player assignments
-local PlayerAssignments = {}  -- [Player] = {Team = "Blue"/"Red", SlotIndex = number}
+local PlayerAssignments = {}  -- [Player] = {Team = "HomeTeam"/"AwayTeam", SlotIndex = number}
 
 -- Dependencies
 local NPCManager = nil
@@ -59,16 +59,16 @@ local GoalCelebration = nil
 
 -- Initialize the Team Manager
 function TeamManager.Initialize(blueGoal, redGoal, npcManager, formationData)
-	Teams.Blue.GoalPart = blueGoal
-	Teams.Red.GoalPart = redGoal
+	Teams.HomeTeam.GoalPart = blueGoal
+	Teams.AwayTeam.GoalPart = redGoal
 	NPCManager = npcManager
 	FormationData = formationData
 
 	if not blueGoal then
-		warn("[TeamManager] Blue goal not found!")
+		warn("[TeamManager] HomeTeam goal not found!")
 	end
 	if not redGoal then
-		warn("[TeamManager] Red goal not found!")
+		warn("[TeamManager] AwayTeam goal not found!")
 	end
 
 	-- Create RemoteEvents for goal scoring
@@ -87,9 +87,9 @@ function TeamManager.Initialize(blueGoal, redGoal, npcManager, formationData)
 	GoalCelebration.Name = "GoalCelebration"
 	GoalCelebration.Parent = GoalRemoteFolder
 
-	-- Start in kickoff mode (Blue attacks, Red frozen)
-	FrozenTeams = {"Red"}
-	TeamManager.FreezeTeams({"Red"})
+	-- Start in kickoff mode (HomeTeam attacks, AwayTeam frozen)
+	FrozenTeams = {"AwayTeam"}
+	TeamManager.FreezeTeams({"AwayTeam"})
 
 	return true
 end
@@ -131,20 +131,20 @@ end
 
 -- Get team by goal part (useful for goal detection)
 function TeamManager.GetTeamByGoal(goalPart)
-	if Teams.Blue.GoalPart == goalPart then
-		return Teams.Blue
-	elseif Teams.Red.GoalPart == goalPart then
-		return Teams.Red
+	if Teams.HomeTeam.GoalPart == goalPart then
+		return Teams.HomeTeam
+	elseif Teams.AwayTeam.GoalPart == goalPart then
+		return Teams.AwayTeam
 	end
 	return nil
 end
 
 -- Get opposite team
 function TeamManager.GetOppositeTeam(teamName)
-	if teamName == "Blue" then
-		return Teams.Red
-	elseif teamName == "Red" then
-		return Teams.Blue
+	if teamName == "HomeTeam" then
+		return Teams.AwayTeam
+	elseif teamName == "AwayTeam" then
+		return Teams.HomeTeam
 	end
 	return nil
 end
@@ -236,15 +236,15 @@ function TeamManager.AssignPlayerToTeam(player)
 	local redCount = 0
 
 	for _, assignment in pairs(PlayerAssignments) do
-		if assignment.Team == "Blue" then
+		if assignment.Team == "HomeTeam" then
 			blueCount = blueCount + 1
-		elseif assignment.Team == "Red" then
+		elseif assignment.Team == "AwayTeam" then
 			redCount = redCount + 1
 		end
 	end
 
 	-- Assign to team with fewer players
-	local teamName = (blueCount <= redCount) and "Blue" or "Red"
+	local teamName = (blueCount <= redCount) and "HomeTeam" or "AwayTeam"
 	local team = Teams[teamName]
 
 	-- Find first available slot (AI-controlled), prioritizing non-GK
@@ -387,8 +387,8 @@ end
 
 -- Reset scores
 function TeamManager.ResetScores()
-	Teams.Blue.Score = 0
-	Teams.Red.Score = 0
+	Teams.HomeTeam.Score = 0
+	Teams.AwayTeam.Score = 0
 	print("[TeamManager] Scores reset")
 end
 
@@ -400,7 +400,7 @@ function TeamManager.ResetAllPositions()
 	end
 
 	-- First, set both teams to Neutral formation
-	for _, teamName in ipairs({"Blue", "Red"}) do
+	for _, teamName in ipairs({"HomeTeam", "AwayTeam"}) do
 		local team = Teams[teamName]
 		if team then
 			team.Formation = "Neutral"
@@ -408,7 +408,7 @@ function TeamManager.ResetAllPositions()
 	end
 
 	-- Use NPCManager to recalculate positions for Neutral formation
-	for _, teamName in ipairs({"Blue", "Red"}) do
+	for _, teamName in ipairs({"HomeTeam", "AwayTeam"}) do
 		local team = Teams[teamName]
 		local slots = team.Slots
 
@@ -462,8 +462,8 @@ function TeamManager.GetSmallerTeam()
 	local redPlayerCount = 0
 
 	-- Count non-AI slots for each team
-	local blueSlots = TeamManager.GetTeamSlots("Blue")
-	local redSlots = TeamManager.GetTeamSlots("Red")
+	local blueSlots = TeamManager.GetTeamSlots("HomeTeam")
+	local redSlots = TeamManager.GetTeamSlots("AwayTeam")
 
 	for _, slot in ipairs(blueSlots) do
 		if not slot.IsAI then
@@ -479,12 +479,12 @@ function TeamManager.GetSmallerTeam()
 
 	-- Return team with fewer players
 	if bluePlayerCount < redPlayerCount then
-		return "Blue"
+		return "HomeTeam"
 	elseif redPlayerCount < bluePlayerCount then
-		return "Red"
+		return "AwayTeam"
 	else
 		-- Equal, return random
-		return math.random() > 0.5 and "Blue" or "Red"
+		return math.random() > 0.5 and "HomeTeam" or "AwayTeam"
 	end
 end
 
@@ -518,7 +518,7 @@ function TeamManager.UnfreezeAllTeams()
 	-- Clear frozen teams array
 	FrozenTeams = {}
 
-	for _, teamName in ipairs({"Blue", "Red"}) do
+	for _, teamName in ipairs({"HomeTeam", "AwayTeam"}) do
 		local slots = TeamManager.GetTeamSlots(teamName)
 		for _, slot in ipairs(slots) do
 			if slot.NPC and slot.NPC.Parent then
@@ -553,8 +553,8 @@ function TeamManager.OnGoalScored(scoringTeam, scorerCharacter)
 	TeamManager.AddScore(scoringTeam, 1)
 
 	-- Get current scores
-	local blueScore = TeamManager.GetScore("Blue")
-	local redScore = TeamManager.GetScore("Red")
+	local blueScore = TeamManager.GetScore("HomeTeam")
+	local redScore = TeamManager.GetScore("AwayTeam")
 
 	-- Broadcast to all clients
 	if GoalScored then
@@ -571,7 +571,7 @@ function TeamManager.OnGoalScored(scoringTeam, scorerCharacter)
 	TeamManager.ResetAllPositions()
 
 	-- Freeze everyone after reset
-	TeamManager.FreezeTeams({"Blue", "Red"})
+	TeamManager.FreezeTeams({"HomeTeam", "AwayTeam"})
 
 	-- Wait for intermission
 	task.wait(GoalSettings.IntermissionTime)
@@ -619,8 +619,8 @@ end
 -- Start a new kickoff (called by GameManager for match start/restart)
 -- attackingTeam: The team that will attack (other team is frozen)
 function TeamManager.StartKickoff(attackingTeam)
-	attackingTeam = attackingTeam or "Blue"
-	local defendingTeam = (attackingTeam == "Blue") and "Red" or "Blue"
+	attackingTeam = attackingTeam or "HomeTeam"
+	local defendingTeam = (attackingTeam == "HomeTeam") and "AwayTeam" or "HomeTeam"
 	FrozenTeams = {defendingTeam}
 	TeamManager.FreezeTeams({defendingTeam})
 end
