@@ -53,6 +53,14 @@ local AnimationData = {
 		Offensive = "rbxassetid://99972725424538",
 		Goalkeeper = "rbxassetid://92162025465133"
 	},
+	
+	-- Dance Animations
+	Dance = {
+		Backflip_Uppercut = "rbxassetid://93567639532256",
+		Break_Dance = "rbxassetid://108897228334593",
+		Flair = "rbxassetid://137103771782298",
+		Golf_Celebration = "rbxassetid://109049120905382",
+	},
 }
 
 -- Helper function to choose kick animation based on context

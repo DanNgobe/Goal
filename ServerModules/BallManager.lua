@@ -238,6 +238,9 @@ local function AttachBallToCharacter(character, rootPart)
 	else
 		-- OUTFIELD PLAYER: Original complex system with spin
 		-- Position ball in front of character at foot level
+		Ball.CanCollide = false
+		Ball.Massless = true
+
 		local offset = rootPart.CFrame.LookVector * 3.25
 		Ball.CFrame = CFrame.new(
 			Vector3.new(rootPart.Position.X, rootPart.Position.Y - 5, rootPart.Position.Z) + 
@@ -278,7 +281,6 @@ local function AttachBallToCharacter(character, rootPart)
 		hinge.AngularVelocity = 10
 		hinge.Parent = axle
 
-		Ball.CanCollide = false
 		BallAttachment = axleWeld
 		BallSpinner = hinge
 	end
@@ -540,6 +542,17 @@ function BallManager._SetupTouchDetection()
 				TeamManager.OnBallTouched()
 			end
 			return
+		end
+
+		-- IMPACT DAMPING: If ball is loose and hits a player, reduce its speed
+		if not CurrentOwnerCharacter then
+			-- Reduce velocity on impact with ANY part of the character
+			-- This simulates the ball "losing energy" when hitting a player's body
+			local velocity = Ball.AssemblyLinearVelocity
+			if velocity.Magnitude > 2 then
+				Ball.AssemblyLinearVelocity = velocity * 0.7
+				Ball.AssemblyAngularVelocity *= 0.7
+			end
 		end
 
 		-- NORMAL PLAYERS: Feet only, with speed/cooldown checks
