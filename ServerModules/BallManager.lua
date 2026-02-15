@@ -542,6 +542,17 @@ function BallManager._SetupTouchDetection()
 			return
 		end
 
+		-- IMPACT DAMPING: If ball is loose and hits a player, reduce its speed
+		if not CurrentOwnerCharacter then
+			-- Reduce velocity on impact with ANY part of the character
+			-- This simulates the ball "losing energy" when hitting a player's body
+			local velocity = Ball.AssemblyLinearVelocity
+			if velocity.Magnitude > 2 then
+				Ball.AssemblyLinearVelocity = velocity * 0.7
+				Ball.AssemblyAngularVelocity *= 0.7
+			end
+		end
+
 		-- NORMAL PLAYERS: Feet only, with speed/cooldown checks
 		-- Don't allow attachment if ball is flying or moving fast
 		if Ball:FindFirstChildOfClass("BodyVelocity") or Ball.AssemblyLinearVelocity.Magnitude > 20 then

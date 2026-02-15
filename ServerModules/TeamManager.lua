@@ -42,6 +42,7 @@ local PlayerAssignments = {}  -- [Player] = {Team = "HomeTeam"/"AwayTeam", SlotI
 -- Dependencies
 local NPCManager = nil
 local FormationData = nil
+local AnimationData = require(ReplicatedStorage:WaitForChild("AnimationData"))
 
 -- Game state
 local FrozenTeams = {}  -- Array of team names that are currently frozen
@@ -82,7 +83,7 @@ function TeamManager.Initialize(blueGoal, redGoal, npcManager, formationData)
 	GoalScored = Instance.new("RemoteEvent")
 	GoalScored.Name = "GoalScored"
 	GoalScored.Parent = GoalRemoteFolder
-	
+
 	GoalCelebration = Instance.new("RemoteEvent")
 	GoalCelebration.Name = "GoalCelebration"
 	GoalCelebration.Parent = GoalRemoteFolder
@@ -502,7 +503,7 @@ function TeamManager.FreezeTeams(teamNames)
 				if humanoid and root then
 					humanoid.WalkSpeed = 0
 					humanoid:MoveTo(root.Position)
-					
+
 					-- Anchor ONLY players to ensure they are truly frozen during resets
 					if not slot.IsAI then
 						root.Anchored = true
@@ -524,11 +525,11 @@ function TeamManager.UnfreezeAllTeams()
 			if slot.NPC and slot.NPC.Parent then
 				local humanoid = slot.NPC:FindFirstChildOfClass("Humanoid")
 				local root = slot.NPC:FindFirstChild("HumanoidRootPart")
-				
+
 				if humanoid and root then
 					-- Always unanchor everyone when unfreezing
 					root.Anchored = false
-					
+
 					-- Restore appropriate walk speeds
 					if slot.IsAI then
 						humanoid.WalkSpeed = 16  -- Default AI speed
@@ -560,12 +561,50 @@ function TeamManager.OnGoalScored(scoringTeam, scorerCharacter)
 	if GoalScored then
 		GoalScored:FireAllClients(scoringTeam, blueScore, redScore)
 	end
-	
+
 	-- Broadcast celebration camera event with scorer
 	if GoalCelebration and scorerCharacter and scorerCharacter.Parent then
 		GoalCelebration:FireAllClients(scorerCharacter)
+
+		-- Play random dance animation on the scorer
+		local humanoid = scorerCharacter:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			local danceNames = {}
+			for name, _ in pairs(AnimationData.Dance) do
+				table.insert(danceNames, name)
+			end
+
+			if #danceNames > 0 then
+				local randomDanceName = danceNames[math.random(1, #danceNames)]
+				local animationId = AnimationData.Dance[randomDanceName]
+
+				local animation = Instance.new("Animation")
+				animation.AnimationId = animationId
+
+				local animator = humanoid:FindFirstChildOfClass("Animator")
+				if not animator then
+					animator = Instance.new("Animator")
+					animator.Parent = humanoid
+				end
+
+				local track = animator:LoadAnimation(animation)
+				track:Play()
+
+				-- Automatically stop it after a few seconds or when reset happens
+				task.delay(4, function()
+					if track and track.IsPlaying then
+						track:Stop(0.5)
+					end
+				end)
+			end
+		end
 	end
 
+	-- Freeze everyone immediately to show celebration
+	TeamManager.FreezeTeams({"HomeTeam", "AwayTeam"})
+
+	-- Wait for celebration (3 seconds)
+	task.wait(5)
 
 	-- Reset all positions (players and NPCs)
 	TeamManager.ResetAllPositions()
@@ -573,8 +612,8 @@ function TeamManager.OnGoalScored(scoringTeam, scorerCharacter)
 	-- Freeze everyone after reset
 	TeamManager.FreezeTeams({"HomeTeam", "AwayTeam"})
 
-	-- Wait for intermission
-	task.wait(GoalSettings.IntermissionTime)
+	-- Wait for remaining intermission
+	task.wait(math.max(0, GoalSettings.IntermissionTime - 3))
 
 	-- Setup kickoff: Losing team attacks, winning team (defending) is frozen
 	local defendingTeam = scoringTeam  -- Team that just scored now defends
