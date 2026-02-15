@@ -18,6 +18,14 @@ local RedButton = nil
 -- Callbacks
 local OnTeamSelected = nil
 
+-- Helper to get text color based on background luminance
+local function GetContrastColor(backgroundColor)
+	local r, g, b = backgroundColor.R, backgroundColor.G, backgroundColor.B
+	-- Simple luminance formula
+	local luminance = (0.299 * r + 0.587 * g + 0.114 * b)
+	return luminance > 0.6 and Color3.new(0, 0, 0) or Color3.new(1, 1, 1)
+end
+
 -- Create the team join panel
 function TeamJoinUI.Create(parent, cameraController)
 	local TweenService = game:GetService("TweenService")
@@ -74,7 +82,7 @@ function TeamJoinUI.Create(parent, cameraController)
 	BlueButton.BorderSizePixel = 0
 	BlueButton.Font = Enum.Font.GothamBold
 	BlueButton.TextScaled = true
-	BlueButton.TextColor3 = Color3.new(1, 1, 1)
+	BlueButton.TextColor3 = GetContrastColor(BlueButton.BackgroundColor3)
 	BlueButton.Text = TeamColorHelper.GetTeamName("HomeTeam")
 	BlueButton.Parent = JoinPanel
 
@@ -96,7 +104,7 @@ function TeamJoinUI.Create(parent, cameraController)
 	RedButton.BorderSizePixel = 0
 	RedButton.Font = Enum.Font.GothamBold
 	RedButton.TextScaled = true
-	RedButton.TextColor3 = Color3.new(1, 1, 1)
+	RedButton.TextColor3 = GetContrastColor(RedButton.BackgroundColor3)
 	RedButton.Text = TeamColorHelper.GetTeamName("AwayTeam")
 	RedButton.Parent = JoinPanel
 
@@ -181,7 +189,9 @@ end
 -- Update team colors (called when teams change)
 function TeamJoinUI.UpdateTeamColors()
 	if BlueButton then
-		BlueButton.BackgroundColor3 = TeamColorHelper.GetTeamColor("HomeTeam")
+		local color = TeamColorHelper.GetTeamColor("HomeTeam")
+		BlueButton.BackgroundColor3 = color
+		BlueButton.TextColor3 = GetContrastColor(color)
 		BlueButton.Text = TeamColorHelper.GetTeamName("HomeTeam")
 		local blueStroke = BlueButton:FindFirstChildOfClass("UIStroke")
 		if blueStroke then
@@ -190,7 +200,9 @@ function TeamJoinUI.UpdateTeamColors()
 	end
 	
 	if RedButton then
-		RedButton.BackgroundColor3 = TeamColorHelper.GetTeamColor("AwayTeam")
+		local color = TeamColorHelper.GetTeamColor("AwayTeam")
+		RedButton.BackgroundColor3 = color
+		RedButton.TextColor3 = GetContrastColor(color)
 		RedButton.Text = TeamColorHelper.GetTeamName("AwayTeam")
 		local redStroke = RedButton:FindFirstChildOfClass("UIStroke")
 		if redStroke then

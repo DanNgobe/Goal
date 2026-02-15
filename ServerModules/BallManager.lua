@@ -28,7 +28,7 @@ local Settings = {
 	Possession_Timeout = 0.5,
 	Touch_Cooldown = 0.5,
 	Max_Possession_Speed = 50,
-	Damping = 0.99
+	Damping = 0.96
 }
 
 -- Private variables
@@ -238,9 +238,6 @@ local function AttachBallToCharacter(character, rootPart)
 	else
 		-- OUTFIELD PLAYER: Original complex system with spin
 		-- Position ball in front of character at foot level
-		Ball.CanCollide = false
-		Ball.Massless = true
-
 		local offset = rootPart.CFrame.LookVector * 3.25
 		Ball.CFrame = CFrame.new(
 			Vector3.new(rootPart.Position.X, rootPart.Position.Y - 5, rootPart.Position.Z) + 
@@ -283,6 +280,11 @@ local function AttachBallToCharacter(character, rootPart)
 
 		BallAttachment = axleWeld
 		BallSpinner = hinge
+
+		task.delay(0.5, function()
+			Ball.CanCollide = false
+			Ball.Massless = true
+		end)
 	end
 end
 
@@ -432,7 +434,7 @@ function BallManager.KickBall(character, kickType, power, direction)
 		DetachBall()
 		return false
 	end
-	
+
 	-- Track who kicked the ball (for goal celebrations)
 	LastKickerCharacter = character
 

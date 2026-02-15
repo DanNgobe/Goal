@@ -16,10 +16,10 @@ local StaminaBarUI = require(script.Parent.UI.StaminaBarUI)
 
 -- Constants
 local MAX_STAMINA = 100
-local SPRINT_SPEED = 28
-local NORMAL_SPEED = 23 -- Match user's InputEnded speed
-local DRAIN_RATE = 8 -- User's (2 / 0.25)
-local REGEN_RATE = 6 -- User's (1.5 / 0.25)
+local SPRINT_SPEED = 24
+local NORMAL_SPEED = 18 -- Match user's InputEnded speed
+local DRAIN_RATE = 12 -- User's (2 / 0.25)
+local REGEN_RATE = 8 -- User's (1.5 / 0.25)
 local MIN_TO_SPRINT = 5
 
 -- Private variables

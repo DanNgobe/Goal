@@ -283,8 +283,8 @@ function OnSprintRequest(player, isSprinting)
 	if not humanoid then return end
 
 	-- Authoritative speed change
-	-- Sprint: 28, Normal: 23 (matching user specs)
-	humanoid.WalkSpeed = isSprinting and 28 or 23
+	-- Sprint: 28, Normal: 18
+	humanoid.WalkSpeed = isSprinting and 28 or 18
 end
 
 -- Private: Handle player leaving

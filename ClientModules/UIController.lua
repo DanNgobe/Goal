@@ -120,7 +120,7 @@ end
 function UIController._OnGoalCelebration(scorerCharacter)
 	if scorerCharacter and scorerCharacter.Parent then
 		-- Trigger celebration camera zoom
-		CameraEffects.CelebrationZoom(scorerCharacter, 3)
+		CameraEffects.CelebrationZoom(scorerCharacter, 5)
 	end
 end
 

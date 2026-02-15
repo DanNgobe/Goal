@@ -534,7 +534,7 @@ function TeamManager.UnfreezeAllTeams()
 					if slot.IsAI then
 						humanoid.WalkSpeed = 16  -- Default AI speed
 					else
-						humanoid.WalkSpeed = 23  -- Normal player speed (matching stamina system)
+						humanoid.WalkSpeed = 18  -- Normal player speed (matching stamina system)
 					end
 				end
 			end
@@ -588,6 +588,7 @@ function TeamManager.OnGoalScored(scoringTeam, scorerCharacter)
 				end
 
 				local track = animator:LoadAnimation(animation)
+				track.Looped = false
 				track:Play()
 
 				-- Automatically stop it after a few seconds or when reset happens
