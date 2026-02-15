@@ -28,7 +28,8 @@ local Settings = {
 	Possession_Timeout = 0.5,
 	Touch_Cooldown = 0.5,
 	Max_Possession_Speed = 50,
-	Damping = 0.96
+	Damping = 0.96,
+	Reset_Height = -50
 }
 
 -- Private variables
@@ -281,10 +282,9 @@ local function AttachBallToCharacter(character, rootPart)
 		BallAttachment = axleWeld
 		BallSpinner = hinge
 
-		task.delay(0.5, function()
-			Ball.CanCollide = false
-			Ball.Massless = true
-		end)
+		task.wait(0.3)  -- Wait a frame to ensure attachments are set up before enabling physics
+		Ball.CanCollide = false
+		Ball.Massless = true
 	end
 end
 
@@ -598,6 +598,12 @@ end
 -- Private: Setup heartbeat for damping and maintenance
 function BallManager._SetupHeartbeat()
 	HeartbeatConnection = RunService.Heartbeat:Connect(function(dt)
+		-- Check if ball fell out of world
+		if Ball.Position.Y < Settings.Reset_Height then
+			BallManager.ResetBallToCenter()
+			return
+		end
+
 		-- Apply damping when ball is loose
 		if not CurrentOwnerCharacter and Ball.AssemblyLinearVelocity.Magnitude > 0.1 then
 			Ball.AssemblyLinearVelocity *= Settings.Damping

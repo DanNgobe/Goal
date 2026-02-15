@@ -15,6 +15,10 @@ local TeamManager = {}
 -- Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local DataStoreService = game:GetService("DataStoreService")
+
+-- DataStore
+local GoalDataStore = DataStoreService:GetOrderedDataStore("GoalScored")
 
 -- Team data structure
 local Teams = {
@@ -552,6 +556,20 @@ function TeamManager.OnGoalScored(scoringTeam, scorerCharacter)
 
 	-- Add score to team
 	TeamManager.AddScore(scoringTeam, 1)
+
+	-- Update player stats if scorer is a player
+	if scorerCharacter then
+		local player = Players:GetPlayerFromCharacter(scorerCharacter)
+		if player then
+			-- Direct DataStore update using UpdateAsync
+			pcall(function()
+				GoalDataStore:UpdateAsync(tostring(player.UserId), function(oldValue)
+					local newValue = (oldValue or 0) + 1
+					return newValue
+				end)
+			end)
+		end
+	end
 
 	-- Get current scores
 	local blueScore = TeamManager.GetScore("HomeTeam")
