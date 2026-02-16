@@ -25,6 +25,7 @@ local HeartbeatConnection = nil
 local RemoteFolder = nil
 local TimerUpdate = nil
 local MatchEnded = nil
+local MatchIntro = nil
 
 -- Initialize the Match Timer
 function MatchTimer.Initialize(gameManager, duration)
@@ -52,7 +53,19 @@ function MatchTimer.Initialize(gameManager, duration)
 		MatchEnded.Parent = RemoteFolder
 	end
 
+	-- Match Intro Event
+	MatchIntro = Instance.new("RemoteEvent")
+	MatchIntro.Name = "MatchIntro"
+	MatchIntro.Parent = RemoteFolder
+
 	return true
+end
+
+-- Start the match intro
+function MatchTimer.ShowIntro(homeCode, awayCode)
+	if MatchIntro then
+		MatchIntro:FireAllClients(homeCode, awayCode)
+	end
 end
 
 -- Start the match timer

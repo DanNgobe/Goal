@@ -123,7 +123,20 @@ function GameManager.Initialize()
 		warn("[GameManager] Failed to initialize MatchTimer!")
 		return false
 	end
-	Managers.MatchTimer.Start()
+
+	-- Start the game sequence
+	task.spawn(function()
+		-- 1. Show Match Intro
+		local codes = Managers.NPCManager.GetMatchTeams()
+		Managers.MatchTimer.ShowIntro(codes.HomeTeam, codes.AwayTeam)
+		
+		-- Wait for intro animation (Intro takes ~5 seconds total with fades)
+		task.wait(6)
+		
+		-- 2. Start the match
+		Managers.MatchTimer.Start()
+		print("[GameManager] Match started!")
+	end)
 	
 	CurrentState = GameState.Playing
 	return true

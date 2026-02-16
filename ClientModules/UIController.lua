@@ -19,6 +19,7 @@ local TeamColorHelper = require(script.Parent.TeamColorHelper)
 local ScoreboardUI = require(script.Parent.UI.ScoreboardUI)
 local IntermissionUI = require(script.Parent.UI.IntermissionUI)
 local TeamJoinUI = require(script.Parent.UI.TeamJoinUI)
+local MatchIntroUI = require(script.Parent.UI.MatchIntroUI)
 local CameraEffects = require(script.Parent.CameraEffects)
 
 -- Private variables
@@ -54,11 +55,13 @@ function UIController.Initialize(cameraController)
 	-- Create UI modules
 	ScoreboardUI.Create(ScreenGui)
 	IntermissionUI.Create(ScreenGui)
+	MatchIntroUI.Create(ScreenGui)
 	TeamJoinPanel = TeamJoinUI.Create(ScreenGui, cameraController)
 
 	-- Connect to events
 	UIController._ConnectGoalEvents()
 	UIController._ConnectTimerEvents()
+	UIController._ConnectMatchEvents()
 
 	-- Finally enable the UI
 	ScreenGui.Enabled = true
@@ -104,6 +107,22 @@ function UIController._ConnectTimerEvents()
 		if matchEnded then
 			matchEnded.OnClientEvent:Connect(function(winningTeam, blueScore, redScore)
 				UIController._OnMatchEnded(winningTeam, blueScore, redScore)
+			end)
+		end
+	end)
+end
+
+-- Private: Connect to general match events
+function UIController._ConnectMatchEvents()
+	task.spawn(function()
+		local gameRemotes = ReplicatedStorage:WaitForChild("GameRemotes", 10)
+		if not gameRemotes then return end
+
+		-- Match Intro Event
+		local matchIntro = gameRemotes:WaitForChild("MatchIntro", 5)
+		if matchIntro then
+			matchIntro.OnClientEvent:Connect(function(homeCode, awayCode)
+				MatchIntroUI.Show(homeCode, awayCode)
 			end)
 		end
 	end)
