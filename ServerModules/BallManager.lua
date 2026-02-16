@@ -28,8 +28,8 @@ local Settings = {
 	Possession_Timeout = 0.5,
 	Touch_Cooldown = 0.5,
 	Max_Possession_Speed = 50,
-	Damping = 0.96,
-	Reset_Height = -50
+	Damping = 0.98,
+	Reset_Height = -10
 }
 
 -- Private variables
@@ -81,6 +81,11 @@ function BallManager.Initialize(ballPart, blueGoal, redGoal, fieldCenter, teamMa
 		warn("[BallManager] Ball part not found!")
 		return false
 	end
+
+	-- Set collision group for Ball
+	pcall(function()
+		Ball.CollisionGroup = "Ball"
+	end)
 
 	if not BlueGoal or not RedGoal then
 		warn("[BallManager] Goals not found!")
@@ -282,7 +287,6 @@ local function AttachBallToCharacter(character, rootPart)
 		BallAttachment = axleWeld
 		BallSpinner = hinge
 
-		task.wait(0.3)  -- Wait a frame to ensure attachments are set up before enabling physics
 		Ball.CanCollide = false
 		Ball.Massless = true
 	end

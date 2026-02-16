@@ -5,8 +5,12 @@
 	Place this in StarterPlayer/StarterPlayerScripts
 ]]
 
--- Wait for game to load
-task.wait(1)
+-- Wait for game to fully load to match ReplicatedFirst loading screen
+if not game:IsLoaded() then
+	game.Loaded:Wait()
+end
+-- Wait a bit extra to ensure the custom loading screen (with its 5s wait) is finishing
+task.wait(4.5)
 
 print("[ClientMain] Initializing client...")
 

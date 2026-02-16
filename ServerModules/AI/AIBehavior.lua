@@ -43,9 +43,9 @@ local Config = {
 	Distance = {
 		StopDistance = 3,      -- Stop within this distance
 		ShootRange = 80,
-		PassRange = 70,
+		PassRange = 100,
 		MinimumPass = 8,       -- Don't pass to very close teammates
-		AirPassMinimum = 20,   -- NEW: Minimum distance for air passes
+		AirPassMinimum = 50,   -- Air pass if distance > 50 or ground blocked
 		OvertakeDistance = 8   -- NEW: Distance at which to attempt overtaking
 	},
 
@@ -406,12 +406,10 @@ function TrySmartPass(slot, npc, root, teamName, distToGoal)
 	local power = math.clamp(bestTarget.Distance / Config.Distance.PassRange, 0.3, 0.8)
 
 	-- Use air pass for longer distances or if ground path is blocked
-	if bestTarget.Distance > Config.Distance.AirPassMinimum then
-		local groundBlocked = AIUtils.IsPathBlocked(root.Position, bestTarget.Position, teamName)
-		if groundBlocked or bestTarget.Distance > 60 then
-			kickType = "Air"
-			power = math.clamp(bestTarget.Distance / Config.Distance.PassRange, 0.5, 0.9)
-		end
+	local groundBlocked = AIUtils.IsPathBlocked(root.Position, bestTarget.Position, teamName)
+	if groundBlocked or bestTarget.Distance > Config.Distance.AirPassMinimum then
+		kickType = "Air"
+		power = math.clamp(bestTarget.Distance / Config.Distance.PassRange, 0.5, 0.9)
 	end
 
 	local npcId = tostring(npc)
@@ -439,21 +437,42 @@ function TryShoot(slot, npc, root, teamName)
 	local dist = (goalPos - root.Position).Magnitude
 	if dist > Config.Distance.ShootRange then return false end
 
+	-- Randomize target across the goal mouth
+	local targetPos = goalPos
+	local opponentTeam = AIUtils.GetOppositeTeam(teamName)
+	local teamData = TeamManager.GetTeam(opponentTeam)
+	local goalPart = teamData and teamData.GoalPart
+	
+	if goalPart then
+		-- Offset between roughly -8 to +8 studs (most goals are ~20 wide)
+		local offsetAmount = (math.random() - 0.5) * 20
+		targetPos = goalPos + (goalPart.CFrame.RightVector * offsetAmount)
+	end
+
 	-- Check if shot is blocked by opponents
 	if AIUtils.IsPathBlocked(root.Position, goalPos, teamName) then
 		return false
 	end
 
-	-- Face the goal direction (instantly)
-	local dirToGoal = (goalPos - root.Position).Unit
+	-- Face the target position
+	local dirToTarget = (targetPos - root.Position).Unit
 
-	local power = math.clamp(dist / Config.Distance.ShootRange, 0.5, 1)
-	local kickType = dist > 40 and "Air" or "Ground"
+	local power = math.clamp(dist / Config.Distance.ShootRange, 0.65, 1)
+	
+	-- Randomize kick type: usually air if far, but sometimes ground for variety
+	local kickType = "Ground"
+	if dist > 40 then
+		-- 70% chance of air shot when far
+		kickType = math.random() > 0.3 and "Air" or "Ground"
+	else
+		-- 15% chance of air shot when close (chip shot)
+		kickType = math.random() > 0.6 and "Air" or "Ground"
+	end
 
 	local npcId = tostring(npc)
 
-	local animTrack = PlayKickAnimation(npc, dirToGoal, power, kickType)
-	BallManager.KickBall(npc, kickType, power, dirToGoal)
+	local animTrack = PlayKickAnimation(npc, dirToTarget, power, kickType)
+	BallManager.KickBall(npc, kickType, power, dirToTarget)
 	return true
 end
 
@@ -469,12 +488,10 @@ function TryPass(slot, npc, root, teamName)
 	local power = math.clamp(bestTarget.Distance / Config.Distance.PassRange, 0.3, 0.8)
 
 	-- Use air pass for longer distances or if ground path is blocked
-	if bestTarget.Distance > Config.Distance.AirPassMinimum then
-		local groundBlocked = AIUtils.IsPathBlocked(root.Position, bestTarget.Position, teamName)
-		if groundBlocked or bestTarget.Distance > 35 then
-			kickType = "Air"
-			power = math.clamp(bestTarget.Distance / Config.Distance.PassRange, 0.5, 0.9)
-		end
+	local groundBlocked = AIUtils.IsPathBlocked(root.Position, bestTarget.Position, teamName)
+	if groundBlocked or bestTarget.Distance > Config.Distance.AirPassMinimum then
+		kickType = "Air"
+		power = math.clamp(bestTarget.Distance / Config.Distance.PassRange, 0.5, 0.9)
 	end
 
 	local npcId = tostring(npc)

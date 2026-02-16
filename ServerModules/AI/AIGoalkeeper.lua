@@ -549,7 +549,7 @@ function UpdateGoalkeeperState(npc, humanoid, root, bodyGyro, slot, teamName, np
 
 	local ballPos = ball.Position
 	local ballVel = ball.AssemblyLinearVelocity
-	local ballIsHeld = not ball.CanCollide
+	local ballIsHeld = BallManager and BallManager.GetCurrentOwner() ~= nil
 	local distToBall = (ballPos - root.Position).Magnitude
 
 	-- Intercept prediction

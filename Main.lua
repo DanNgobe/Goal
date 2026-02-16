@@ -35,6 +35,11 @@ local function SetupCollisionGroups()
 			PhysicsService:RegisterCollisionGroup("NPCs")
 		end
 	end)
+	pcall(function()
+		if not PhysicsService:IsCollisionGroupRegistered("Ball") then
+			PhysicsService:RegisterCollisionGroup("Ball")
+		end
+	end)
 
 	-- Set collision rules
 	pcall(function()
@@ -43,9 +48,14 @@ local function SetupCollisionGroups()
 		PhysicsService:CollisionGroupSetCollidable("NPCs", "NPCs", false)
 		PhysicsService:CollisionGroupSetCollidable("Players", "NPCs", false)
 
+		-- Ball doesn't collide with Players or NPCs (handled by touch/magnets)
+		PhysicsService:CollisionGroupSetCollidable("Ball", "Players", false)
+		PhysicsService:CollisionGroupSetCollidable("Ball", "NPCs", false)
+
 		-- All groups can collide with Default (ground, goals, walls, etc.)
 		PhysicsService:CollisionGroupSetCollidable("Players", "Default", true)
 		PhysicsService:CollisionGroupSetCollidable("NPCs", "Default", true)
+		PhysicsService:CollisionGroupSetCollidable("Ball", "Default", true)
 	end)
 
 end

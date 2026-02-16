@@ -48,6 +48,7 @@ function UIController.Initialize(cameraController)
 	ScreenGui = Instance.new("ScreenGui")
 	ScreenGui.Name = "SoccerUI"
 	ScreenGui.ResetOnSpawn = false
+	ScreenGui.Enabled = false -- Keep hidden until initialization finishes
 	ScreenGui.Parent = PlayerGui
 
 	-- Create UI modules
@@ -58,6 +59,9 @@ function UIController.Initialize(cameraController)
 	-- Connect to events
 	UIController._ConnectGoalEvents()
 	UIController._ConnectTimerEvents()
+
+	-- Finally enable the UI
+	ScreenGui.Enabled = true
 
 	return true
 end
