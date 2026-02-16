@@ -13,12 +13,14 @@ This document outlines the planned improvements for player experience, visual Po
     - Camera pan across the field or the starting lineups.
     - Delayed match start until intro finishes.
 
-### 1.2 Onboarding / Controls Overlay
+### 1.2 Onboarding / Controls Overlay [COMPLETED]
 - **Goal:** Reduce friction for new players.
 - **Features:**
-    - Clean UI element in the bottom-left corner.
+    - Clean UI element in the bottom-right corner.
     - Toggleable with a key (e.g., `H` for Help).
-    - Context-sensitive: Shows "Q - Tackle" when defending, "Space - Air Kick" when attacking, "M to...", "C to..."
+    - Auto-shows after 10 seconds only for players who haven't scored a goal yet.
+    - Context-sensitive: Shows "Q - Tackle" when defending, "MB2 - Air Kick" when attacking, "M to...", "C to..." check all controlls
+    - Dedicated "Invite" button icon on the screen.
 
 ---
 
@@ -65,4 +67,4 @@ This document outlines the planned improvements for player experience, visual Po
     - Pass completion rates.
 - [ ] **Match Intro System:** Refactor `IntermissionUI` to handle "Intro" vs "Goal" vs "Match End" states.
 - [ ] **World Cup Logic:** Build a `TournamentManager.lua` that saves player's progress and manages the "path" to the final.
-- [ ] **Controls Overlay:** Add a toggleable UI layer in `UIController.lua`.
+- [x] **Help Overlay:** Add a toggleable UI layer in `UIController.lua`.

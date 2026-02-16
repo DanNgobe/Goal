@@ -15,11 +15,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- Private variables
 local IsProcessing = false
 local BallControlClient = nil
+local UIController = nil
 
 -- Initialize
 function InputHandler.Initialize(ballControlClient)
-	-- Store reference to BallControlClient
+	-- Store reference modules
 	BallControlClient = ballControlClient
+	UIController = require(script.Parent.UIController)
 
 	-- Connect to input
 	UserInputService.InputBegan:Connect(OnInputBegan)
@@ -39,6 +41,11 @@ function OnInputBegan(input, gameProcessed)
 		-- Request tackle
 		if BallControlClient then
 			BallControlClient.Tackle()
+		end
+	elseif input.KeyCode == Enum.KeyCode.H then
+		-- Toggle Help UI
+		if UIController then
+			UIController.ToggleHelp()
 		end
 	end
 end

@@ -61,6 +61,7 @@ local GoalSettings = {
 local GoalRemoteFolder = nil
 local GoalScored = nil
 local GoalCelebration = nil
+local CheckHasScored = nil
 
 -- Initialize the Team Manager
 function TeamManager.Initialize(blueGoal, redGoal, npcManager, formationData)
@@ -91,6 +92,17 @@ function TeamManager.Initialize(blueGoal, redGoal, npcManager, formationData)
 	GoalCelebration = Instance.new("RemoteEvent")
 	GoalCelebration.Name = "GoalCelebration"
 	GoalCelebration.Parent = GoalRemoteFolder
+
+	CheckHasScored = Instance.new("RemoteFunction")
+	CheckHasScored.Name = "CheckHasScored"
+	CheckHasScored.Parent = GoalRemoteFolder
+
+	CheckHasScored.OnServerInvoke = function(player)
+		local success, score = pcall(function()
+			return GoalDataStore:GetAsync(tostring(player.UserId))
+		end)
+		return success and (score ~= nil and score > 0)
+	end
 
 	-- Start in kickoff mode (HomeTeam attacks, AwayTeam frozen)
 	FrozenTeams = {"AwayTeam"}
