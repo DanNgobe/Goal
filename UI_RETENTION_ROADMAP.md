@@ -24,7 +24,7 @@ This document outlines the planned improvements for player experience, visual Po
 
 ---
 
-## ⚽ Phase 2: In-Game Feedback
+## ⚽ Phase 2: In-Game Feedback [COMPLETED]
 ### 2.1 Goal & Assist Feed
 - **Goal:** Recognize individual player performance.
 - **Features:**
@@ -32,7 +32,7 @@ This document outlines the planned improvements for player experience, visual Po
     - Format: `[Scorer] SCORED! (Assist: [Teammate])`
     - Integration with `TeamManager` to track who last touched the ball before the scorer.
 
-### 2.2 Live Match Stats
+### 2.2 Live Match Stats [REMOVED]
 - **Goal:** Provide tactical feedback.
 - **Features:**
     - Track **Possession %**, **Shots on Goal**, and **Pass Accuracy**.
@@ -60,11 +60,8 @@ This document outlines the planned improvements for player experience, visual Po
 ---
 
 ## 🛠️ Technical Implementation Checklist
-- [ ] **Assist System:** Update `BallManager` to track `LastOwnerCharacter` (the person who passed the ball) in addition to `LastKickerCharacter`.
-- [ ] **Stat Tracker:** Create a `StatTracker.lua` module to record:
-    - Shots on goal (ball enters a "threat zone" or is kicked toward goal).
-    - Possession time per team.
-    - Pass completion rates.
+- [x] **Assist System:** Update `BallManager` to track `LastOwnerCharacter` (the person who passed the ball) in addition to `LastKickerCharacter`.
+- [ ] **Stat Tracker:** [REMOVED]
 - [ ] **Match Intro System:** Refactor `IntermissionUI` to handle "Intro" vs "Goal" vs "Match End" states.
 - [ ] **World Cup Logic:** Build a `TournamentManager.lua` that saves player's progress and manages the "path" to the final.
 - [x] **Help Overlay:** Add a toggleable UI layer in `UIController.lua`.

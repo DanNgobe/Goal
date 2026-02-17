@@ -246,6 +246,28 @@ function TeamManager.GetPlayerSlot(player)
 	return nil
 end
 
+-- Find the team a character is on
+function TeamManager.GetCharacterTeam(character)
+	if not character then return nil end
+
+	-- Check players first
+	local player = Players:GetPlayerFromCharacter(character)
+	if player then
+		local teamName = TeamManager.GetPlayerTeam(player)
+		if teamName then return teamName end
+	end
+
+	-- Check NPCs/Slots
+	for teamName, team in pairs(Teams) do
+		for _, slot in ipairs(team.Slots) do
+			if slot.NPC == character then
+				return teamName
+			end
+		end
+	end
+	return nil
+end
+
 -- Assign a player to a team (auto-balance)
 function TeamManager.AssignPlayerToTeam(player)
 	-- Count players on each team
@@ -559,7 +581,7 @@ function TeamManager.UnfreezeAllTeams()
 end
 
 -- Handle goal scored
-function TeamManager.OnGoalScored(scoringTeam, scorerCharacter)
+function TeamManager.OnGoalScored(scoringTeam, scorerCharacter, assisterCharacter)
 	if IsProcessingGoal then
 		return
 	end
@@ -587,9 +609,23 @@ function TeamManager.OnGoalScored(scoringTeam, scorerCharacter)
 	local blueScore = TeamManager.GetScore("HomeTeam")
 	local redScore = TeamManager.GetScore("AwayTeam")
 
+	-- Determine names for UI
+	local scorerName = scorerCharacter and scorerCharacter.Name or "Unknown"
+	local assisterName = nil
+	
+	if assisterCharacter and assisterCharacter ~= scorerCharacter then
+		local scorerTeam = TeamManager.GetCharacterTeam(scorerCharacter)
+		local assisterTeam = TeamManager.GetCharacterTeam(assisterCharacter)
+		
+		-- Only count assist if on the same team (and not an own goal)
+		if scorerTeam == assisterTeam and scorerTeam == scoringTeam then
+			assisterName = assisterCharacter.Name
+		end
+	end
+
 	-- Broadcast to all clients
 	if GoalScored then
-		GoalScored:FireAllClients(scoringTeam, blueScore, redScore)
+		GoalScored:FireAllClients(scoringTeam, blueScore, redScore, scorerName, assisterName)
 	end
 
 	-- Broadcast celebration camera event with scorer

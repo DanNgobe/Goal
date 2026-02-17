@@ -286,6 +286,7 @@ function GameManager.EndMatch()
 		winningTeam = "AwayTeam"
 	end
 
+
 	-- Notify all clients
 	local gameRemotes = ReplicatedStorage:FindFirstChild("GameRemotes")
 	if gameRemotes then

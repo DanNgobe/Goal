@@ -37,6 +37,7 @@ local Ball = nil
 local KickSound = nil
 local CurrentOwnerCharacter = nil  -- Now stores Character, not Player
 local LastKickerCharacter = nil  -- Track who last kicked the ball (for goal celebrations)
+local LastOwnerCharacter = nil  -- Track who passed the ball (for assists)
 local OwnershipStart = 0
 local BallAttachment = nil
 local BallSpinner = nil
@@ -126,10 +127,10 @@ function BallManager._SetupGoalDetection()
 	-- HomeTeam Goal detection
 	local blueConnection = BlueGoal.Touched:Connect(function(hit)
 		if hit == Ball and TeamManager then
+			-- Notify TeamManager with scorer and assister info
+			TeamManager.OnGoalScored("AwayTeam", LastKickerCharacter, LastOwnerCharacter)  -- AwayTeam scores in HomeTeam's goal
 			-- Reset ball immediately
 			BallManager.ResetBallToCenter()
-			-- Notify TeamManager with scorer info
-			TeamManager.OnGoalScored("AwayTeam", LastKickerCharacter)  -- AwayTeam scores in HomeTeam's goal
 		end
 	end)
 	table.insert(GoalTouchConnections, blueConnection)
@@ -137,10 +138,10 @@ function BallManager._SetupGoalDetection()
 	-- AwayTeam Goal detection
 	local redConnection = RedGoal.Touched:Connect(function(hit)
 		if hit == Ball and TeamManager then
+			-- Notify TeamManager with scorer and assister info
+			TeamManager.OnGoalScored("HomeTeam", LastKickerCharacter, LastOwnerCharacter)  -- HomeTeam scores in AwayTeam's goal
 			-- Reset ball immediately
 			BallManager.ResetBallToCenter()
-			-- Notify TeamManager with scorer info
-			TeamManager.OnGoalScored("HomeTeam", LastKickerCharacter)  -- HomeTeam scores in AwayTeam's goal
 		end
 	end)
 	table.insert(GoalTouchConnections, redConnection)
@@ -160,6 +161,10 @@ function BallManager.ResetBallToCenter()
 
 	-- Detach ball if possessed
 	BallManager.DetachBall()
+
+	-- Reset trackers
+	LastKickerCharacter = nil
+	LastOwnerCharacter = nil
 
 	-- Reset ball position to center
 	Ball.CFrame = CFrame.new(FieldCenter + Vector3.new(0, 10, 0))
@@ -439,7 +444,10 @@ function BallManager.KickBall(character, kickType, power, direction)
 		return false
 	end
 
-	-- Track who kicked the ball (for goal celebrations)
+	-- Track who kicked the ball (for goal celebrations and assists)
+	if character ~= LastKickerCharacter then
+		LastOwnerCharacter = LastKickerCharacter
+	end
 	LastKickerCharacter = character
 
 	local rootPart = character:FindFirstChild("HumanoidRootPart")

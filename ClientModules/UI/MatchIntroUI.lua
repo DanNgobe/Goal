@@ -60,8 +60,8 @@ function MatchIntroUI.Create(parent)
 	-- Left Panel (Home) - Centered design
 	HomePanel = Instance.new("Frame")
 	HomePanel.Name = "HomePanel"
-	HomePanel.Size = UDim2.new(0.55, 0, 1, 0)
-	HomePanel.Position = UDim2.new(-0.55, 0, 0, 0)
+	HomePanel.Size = UDim2.new(0.45, 0, 1, 0) -- Reduced from 0.55 to prevent overlap
+	HomePanel.Position = UDim2.new(-0.45, 0, 0, 0)
 	HomePanel.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
 	HomePanel.BorderSizePixel = 0
 	HomePanel.ZIndex = 10
@@ -100,8 +100,8 @@ function MatchIntroUI.Create(parent)
 	-- Large country name
 	local homeLabel = Instance.new("TextLabel")
 	homeLabel.Name = "TeamName"
-	homeLabel.Size = UDim2.new(0.9, 0, 0.22, 0)
-	homeLabel.Position = UDim2.new(0.05, 0, 0.62, 0)
+	homeLabel.Size = UDim2.new(0.9, 0, 0.3, 0)
+	homeLabel.Position = UDim2.new(0.05, 0, 0.55, 0)
 	homeLabel.BackgroundTransparency = 1
 	homeLabel.Font = Enum.Font.GothamBlack
 	homeLabel.TextScaled = true
@@ -109,18 +109,18 @@ function MatchIntroUI.Create(parent)
 	homeLabel.TextXAlignment = Enum.TextXAlignment.Center
 	homeLabel.ZIndex = 15
 	homeLabel.Parent = HomePanel
-	
+
 	-- Subtle stroke for country name
 	local homeStroke = Instance.new("UIStroke")
-	homeStroke.Thickness = 2.5
+	homeStroke.Thickness = 4
 	homeStroke.Transparency = 0
 	homeStroke.Parent = homeLabel
 
 	-- Right Panel (Away) - Centered design
 	AwayPanel = Instance.new("Frame")
 	AwayPanel.Name = "AwayPanel"
-	AwayPanel.Size = UDim2.new(0.55, 0, 1, 0)
-	AwayPanel.Position = UDim2.new(1.55, 0, 0, 0)
+	AwayPanel.Size = UDim2.new(0.45, 0, 1, 0) -- Reduced from 0.55 to prevent overlap
+	AwayPanel.Position = UDim2.new(1.45, 0, 0, 0)
 	AwayPanel.BackgroundColor3 = Color3.fromRGB(50, 30, 30)
 	AwayPanel.BorderSizePixel = 0
 	AwayPanel.AnchorPoint = Vector2.new(1, 0)
@@ -159,8 +159,8 @@ function MatchIntroUI.Create(parent)
 	-- Large country name
 	local awayLabel = Instance.new("TextLabel")
 	awayLabel.Name = "TeamName"
-	awayLabel.Size = UDim2.new(0.9, 0, 0.22, 0)
-	awayLabel.Position = UDim2.new(0.05, 0, 0.62, 0)
+	awayLabel.Size = UDim2.new(0.9, 0, 0.3, 0)
+	awayLabel.Position = UDim2.new(0.05, 0, 0.55, 0)
 	awayLabel.BackgroundTransparency = 1
 	awayLabel.Font = Enum.Font.GothamBlack
 	awayLabel.TextScaled = true
@@ -170,26 +170,26 @@ function MatchIntroUI.Create(parent)
 	awayLabel.Parent = AwayPanel
 
 	local awayStroke = Instance.new("UIStroke")
-	awayStroke.Thickness = 2.5
+	awayStroke.Thickness = 4
 	awayStroke.Transparency = 0
 	awayStroke.Parent = awayLabel
 
 	-- VS Label in center
 	VSLabel = Instance.new("TextLabel")
 	VSLabel.Name = "VS"
-	VSLabel.Size = UDim2.new(0, 150, 0, 150)
-	VSLabel.Position = UDim2.new(0.5, -75, 0.5, -75)
+	VSLabel.Size = UDim2.new(0, 120, 0, 120)
+	VSLabel.Position = UDim2.new(0.5, -60, 0.5, -60)
 	VSLabel.BackgroundTransparency = 1
 	VSLabel.Font = Enum.Font.GothamBlack
 	VSLabel.Text = "VS"
 	VSLabel.TextColor3 = Color3.new(1, 1, 1)
-	VSLabel.TextSize = 80
+	VSLabel.TextSize = 70
 	VSLabel.ZIndex = 110
 	VSLabel.TextTransparency = 1
 	VSLabel.Parent = matchupContainer
 
 	local vsStroke = Instance.new("UIStroke")
-	vsStroke.Thickness = 4
+	vsStroke.Thickness = 3
 	vsStroke.Color = Color3.new(0, 0, 0)
 	vsStroke.Parent = VSLabel
 
@@ -221,12 +221,12 @@ function MatchIntroUI.Show(homeCode, awayCode)
 	AwayPanel:FindFirstChild("TeamName"):FindFirstChild("UIStroke").Color = awayData.SecondaryColor
 
 	-- Reset positions for animation
-	HomePanel.Position = UDim2.new(-0.55, 0, 0, 0)
-	AwayPanel.Position = UDim2.new(1.55, 0, 0, 0)
+	HomePanel.Position = UDim2.new(-0.45, 0, 0, 0)
+	AwayPanel.Position = UDim2.new(1.45, 0, 0, 0)
 	VSLabel.TextTransparency = 1
-	
+
 	if VSScale then
-		VSScale.Scale = 5
+		VSScale.Scale = 1 -- Start at normal size
 	end
 
 	IntroFrame.Visible = true
@@ -242,21 +242,28 @@ function MatchIntroUI.Show(homeCode, awayCode)
 	-- Slide panels into view
 	TweenService:Create(HomePanel, tweenInfo, {Position = UDim2.new(0, 0, 0, 0)}):Play()
 	TweenService:Create(AwayPanel, tweenInfo, {Position = UDim2.new(1, 0, 0, 0)}):Play()
-	
+
 	task.delay(slideTime - 0.4, function()
 		PlaySound(SoundData.VS_Slam, 1)
-		
-		-- VS Pop
-		TweenService:Create(VSLabel, TweenInfo.new(0.4, Enum.EasingStyle.Bounce), {
+
+		-- VS appears with fade and pulse (no zoom)
+		VSLabel.TextTransparency = 1
+		if VSScale then
+			VSScale.Scale = 1 -- Already at normal size
+		end
+
+		-- Fade in the VS
+		TweenService:Create(VSLabel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 			TextTransparency = 0
 		}):Play()
-		
+
+		-- Subtle pulse effect
 		if VSScale then
-			TweenService:Create(VSScale, TweenInfo.new(0.4, Enum.EasingStyle.Bounce), {
-				Scale = 1
+			TweenService:Create(VSScale, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true), {
+				Scale = 1.15
 			}):Play()
 		end
-		
+
 		-- Subtle pulse on panels when VS hits
 		TweenService:Create(HomePanel, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true), {
 			Position = UDim2.new(-0.02, 0, 0, 0)
@@ -269,10 +276,10 @@ function MatchIntroUI.Show(homeCode, awayCode)
 	-- Wait and hide
 	task.delay(4.5, function()
 		local fadeOut = TweenInfo.new(0.6, Enum.EasingStyle.Exponential, Enum.EasingDirection.In)
-		TweenService:Create(HomePanel, fadeOut, {Position = UDim2.new(-0.55, 0, 0, 0)}):Play()
-		TweenService:Create(AwayPanel, fadeOut, {Position = UDim2.new(1.55, 0, 0, 0)}):Play()
+		TweenService:Create(HomePanel, fadeOut, {Position = UDim2.new(-0.45, 0, 0, 0)}):Play()
+		TweenService:Create(AwayPanel, fadeOut, {Position = UDim2.new(1.45, 0, 0, 0)}):Play()
 		TweenService:Create(VSLabel, fadeOut, {TextTransparency = 1}):Play()
-		
+
 		task.wait(1.0)
 		IntroFrame.Visible = false
 	end)

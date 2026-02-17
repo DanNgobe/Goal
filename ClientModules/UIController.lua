@@ -22,6 +22,7 @@ local TeamJoinUI = require(script.Parent.UI.TeamJoinUI)
 local MatchIntroUI = require(script.Parent.UI.MatchIntroUI)
 local HelpUI = require(script.Parent.UI.HelpUI)
 local InviteUI = require(script.Parent.UI.InviteUI)
+local GoalFeedUI = require(script.Parent.UI.GoalFeedUI)
 local CameraEffects = require(script.Parent.CameraEffects)
 
 -- Private variables
@@ -60,6 +61,7 @@ function UIController.Initialize(cameraController)
 	MatchIntroUI.Create(ScreenGui)
 	HelpUI.Create(ScreenGui)
 	InviteUI.Create(ScreenGui)
+	GoalFeedUI.Create(ScreenGui)
 	TeamJoinPanel = TeamJoinUI.Create(ScreenGui, cameraController)
 
 	-- Connect to events
@@ -118,8 +120,8 @@ function UIController._ConnectGoalEvents()
 	local goalRemotes = ReplicatedStorage:WaitForChild("GoalRemotes")
 	local goalScored = goalRemotes:WaitForChild("GoalScored")
 
-	goalScored.OnClientEvent:Connect(function(scoringTeam, blueScore, redScore)
-		UIController._OnGoalScored(scoringTeam, blueScore, redScore)
+	goalScored.OnClientEvent:Connect(function(scoringTeam, blueScore, redScore, scorerName, assisterName)
+		UIController._OnGoalScored(scoringTeam, blueScore, redScore, scorerName, assisterName)
 	end)
 	
 	-- Connect to goal celebration event (with scorer info)
@@ -178,9 +180,14 @@ function UIController._UpdateTimer(timeRemaining)
 end
 
 -- Private: Handle goal scored
-function UIController._OnGoalScored(scoringTeam, blueScore, redScore)
+function UIController._OnGoalScored(scoringTeam, blueScore, redScore, scorerName, assisterName)
 	ScoreboardUI.UpdateScores(blueScore, redScore)
 	IntermissionUI.ShowGoal(scoringTeam)
+	
+	-- Show goal feed notification
+	if scorerName then
+		GoalFeedUI.ShowGoal(scoringTeam, scorerName, assisterName)
+	end
 end
 
 -- Private: Handle goal celebration camera

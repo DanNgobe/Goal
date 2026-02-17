@@ -172,8 +172,38 @@ function AssignPlayerToSlot(player, teamName, slotIndex)
 		end
 	end
 
+	-- Handle player death
+	if player.Character then
+		local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid.Died:Connect(function()
+				-- Player died - remove them from team and restore NPC
+				OnPlayerDeath(player, teamName, slotIndex)
+			end)
+		end
+	end
+
 	-- Notify client
 	PlayerJoined:FireClient(player, teamName, slotIndex, slot.HomePosition)
+end
+
+-- Private: Handle player death during gameplay
+function OnPlayerDeath(player, teamName, slotIndex)
+	-- Remove player from team
+	if PlayerSlots[player] then
+		PlayerSlots[player] = nil
+	end
+
+	-- Respawn NPC in the slot they vacated
+	local slots = TeamManager.GetTeamSlots(teamName)
+	local slot = slots[slotIndex]
+	if slot then
+		local npcData = NPCManager.SpawnNPC(teamName, slot.Role, slot.HomePosition)
+		if npcData then
+			slot.NPC = npcData.Model
+			slot.IsAI = true
+		end
+	end
 end
 
 -- Private: Handle slot switch request

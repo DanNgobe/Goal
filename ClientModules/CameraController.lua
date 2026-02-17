@@ -1,6 +1,6 @@
 --[[
 	CameraController.lua
-	Handles camera control and mouse lock for the soccer game.
+	Scriptable camera in locked mode, orbital in unlocked mode.
 ]]
 
 local CameraController = {}
@@ -9,7 +9,6 @@ local CameraController = {}
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local Debris = game:GetService("Debris")
 
 -- Module dependencies
 local CameraEffects = nil
@@ -25,6 +24,7 @@ local HumanoidRootPart = nil
 local IsMouseLocked = false
 local IsRightMouseDown = false
 local CameraRotation = Vector2.new(0, 0)
+local CharacterAngularVelocity = nil
 
 -- Settings
 local CAMERA_DISTANCE = 15
@@ -35,9 +35,10 @@ local MAX_VERTICAL_ANGLE = math.rad(80)
 
 -- Initialize
 function CameraController.Initialize()
-
 	CameraEffects = require(script.Parent.CameraEffects)
-	Camera.CameraType = Enum.CameraType.Scriptable
+
+	-- Start in orbital (unlocked) mode
+	Camera.CameraType = Enum.CameraType.Custom
 
 	UserInputService.InputBegan:Connect(OnInputBegan)
 	UserInputService.InputChanged:Connect(OnInputChanged)
@@ -57,12 +58,18 @@ end
 function CameraController.LockMouse()
 	IsMouseLocked = true
 	UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+	Camera.CameraType = Enum.CameraType.Scriptable
+	-- Sync CameraRotation to current orbital camera angle so it doesnt snap
+	local _, currentY, _ = Camera.CFrame:ToOrientation()
+	CameraRotation = Vector2.new(0, currentY)
 end
 
 -- Unlock mouse
 function CameraController.UnlockMouse()
 	IsMouseLocked = false
 	UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+	Camera.CameraType = Enum.CameraType.Custom
+	CameraRotation = Vector2.new(0, 0)
 end
 
 function CameraController.ToggleMouseLock()
@@ -86,8 +93,8 @@ function SetupCharacter(character)
 	Character = character
 	Humanoid = character:WaitForChild("Humanoid")
 	HumanoidRootPart = character:WaitForChild("HumanoidRootPart")
-
 	CameraRotation = Vector2.new(0, 0)
+	CharacterAngularVelocity = nil
 end
 
 -- Input began
@@ -98,7 +105,6 @@ function OnInputBegan(input, gameProcessed)
 		CameraController.ToggleMouseLock()
 	end
 
-	-- Right mouse drag for unlocked mode
 	if not IsMouseLocked and input.UserInputType == Enum.UserInputType.MouseButton2 then
 		IsRightMouseDown = true
 	end
@@ -108,6 +114,9 @@ end
 function OnInputEnded(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton2 then
 		IsRightMouseDown = false
+		if not IsMouseLocked then
+			UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+		end
 	end
 end
 
@@ -116,73 +125,69 @@ function OnInputChanged(input, gameProcessed)
 	if gameProcessed then return end
 	if input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
 
+	-- Only manually track mouse delta in locked (scriptable) mode
+	if not IsMouseLocked then return end
+
 	local delta = input.Delta
 
-	-- Locked mode (full control)
-	if IsMouseLocked then
-		CameraRotation = CameraRotation + Vector2.new(
-			-delta.Y * MOUSE_SENSITIVITY,
-			-delta.X * MOUSE_SENSITIVITY
-		)
-
-		CameraRotation = Vector2.new(
-			math.clamp(CameraRotation.X, MIN_VERTICAL_ANGLE, MAX_VERTICAL_ANGLE),
-			CameraRotation.Y
-		)
-
-	-- Unlocked + right click drag (horizontal only)
-	elseif IsRightMouseDown then
-		CameraRotation = CameraRotation + Vector2.new(
-			0,
-			-delta.X * MOUSE_SENSITIVITY
-		)
-	end
+	CameraRotation = Vector2.new(
+		math.clamp(
+			CameraRotation.X + (-delta.Y * MOUSE_SENSITIVITY),
+			MIN_VERTICAL_ANGLE,
+			MAX_VERTICAL_ANGLE
+		),
+		CameraRotation.Y + (-delta.X * MOUSE_SENSITIVITY)
+	)
 end
 
 -- Camera update
 function UpdateCamera()
+	if CameraEffects and CameraEffects.IsCelebrating() then return end
+	if not Character or not HumanoidRootPart or not Humanoid then return end
 
-	if CameraEffects and CameraEffects.IsCelebrating() then
-		return
+	-- Locked mode: drive camera manually (scriptable)
+	if IsMouseLocked then
+		local horizontalAngle = CameraRotation.Y
+		local verticalAngle = CameraRotation.X
+
+		local rotationCFrame =
+			CFrame.Angles(0, horizontalAngle, 0) *
+			CFrame.Angles(verticalAngle, 0, 0)
+
+		local offset = rotationCFrame * Vector3.new(0, CAMERA_HEIGHT, CAMERA_DISTANCE)
+		local characterPosition = HumanoidRootPart.Position
+
+		Camera.CFrame = CFrame.new(characterPosition + offset, characterPosition)
 	end
 
-	if not Character or not HumanoidRootPart then return end
+	-- Character rotation: locked mode OR right-click drag in orbital mode
+	local shouldControlRotation = IsMouseLocked or IsRightMouseDown
 
-	local horizontalAngle = CameraRotation.Y
-	local verticalAngle = CameraRotation.X
-
-	local rotationCFrame =
-		CFrame.Angles(0, horizontalAngle, 0) *
-		CFrame.Angles(verticalAngle, 0, 0)
-
-	local offset = rotationCFrame * Vector3.new(0, CAMERA_HEIGHT, CAMERA_DISTANCE)
-	local characterPosition = HumanoidRootPart.Position
-
-	Camera.CFrame = CFrame.new(characterPosition + offset, characterPosition)
-
-	-- Character rotation when mouse locked OR right-dragging
-	if (IsMouseLocked or IsRightMouseDown) and Humanoid and HumanoidRootPart then
+	if shouldControlRotation then
 		Humanoid.AutoRotate = false
 
-		local _, cameraY, _ = Camera.CFrame:ToOrientation()
+		if not CharacterAngularVelocity or not CharacterAngularVelocity.Parent then
+			CharacterAngularVelocity = Instance.new("BodyAngularVelocity")
+			CharacterAngularVelocity.MaxTorque = Vector3.new(0, math.huge, 0)
+			CharacterAngularVelocity.P = 1000
+			CharacterAngularVelocity.Parent = HumanoidRootPart
+		end
 
+		local _, cameraY, _ = Camera.CFrame:ToOrientation()
 		local currentLook = HumanoidRootPart.CFrame.LookVector
 		local desiredLook = Vector3.new(-math.sin(cameraY), 0, -math.cos(cameraY))
 
 		local cross = currentLook:Cross(desiredLook)
-		local angle = math.asin(cross.Y)
+		local angle = math.asin(math.clamp(cross.Y, -1, 1))
 
-		local angularVelocity = Instance.new("BodyAngularVelocity")
-		angularVelocity.MaxTorque = Vector3.new(0, math.huge, 0)
-		angularVelocity.AngularVelocity = Vector3.new(0, angle * 10, 0)
-		angularVelocity.P = 1000
-		angularVelocity.Parent = HumanoidRootPart
-
-		Debris:AddItem(angularVelocity, 0.05)
+		CharacterAngularVelocity.AngularVelocity = Vector3.new(0, angle * 10, 0)
 
 	else
-		if Humanoid then
-			Humanoid.AutoRotate = true
+		Humanoid.AutoRotate = true
+
+		if CharacterAngularVelocity then
+			CharacterAngularVelocity:Destroy()
+			CharacterAngularVelocity = nil
 		end
 	end
 end
