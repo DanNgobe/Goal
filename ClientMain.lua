@@ -62,3 +62,53 @@ if uiSuccess and ballSuccess and inputSuccess and cameraSuccess and ballEffectsS
 else
 	warn("[ClientMain] ✗ Client initialization failed!")
 end
+
+-- Hide player's own nameplate
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local function onCharacterAdded(character)
+	-- Listen for when head is added
+	character.ChildAdded:Connect(function(child)
+		if child.Name == "Head" then
+			-- Listen for billboard gui being added to head
+			child.ChildAdded:Connect(function(gui)
+				if gui:IsA("BillboardGui") then
+					gui:Destroy()
+				end
+			end)
+			
+			-- Also check existing children in case it's already there
+			for _, gui in ipairs(child:GetChildren()) do
+				if gui:IsA("BillboardGui") then
+					gui:Destroy()
+				end
+			end
+		end
+	end)
+	
+	-- Also check if head already exists
+	local head = character:FindFirstChild("Head")
+	if head then
+		-- Listen for billboard gui being added to head
+		head.ChildAdded:Connect(function(gui)
+			if gui:IsA("BillboardGui") then
+				gui:Destroy()
+			end
+		end)
+		
+		-- Check existing children
+		for _, gui in ipairs(head:GetChildren()) do
+			if gui:IsA("BillboardGui") then
+				gui:Destroy()
+			end
+		end
+	end
+end
+
+if player then
+	if player.Character then
+		onCharacterAdded(player.Character)
+	end
+	player.CharacterAdded:Connect(onCharacterAdded)
+end

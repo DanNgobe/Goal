@@ -160,6 +160,7 @@ function AssignPlayerToSlot(player, teamName, slotIndex)
 	-- Apply team colors to player character
 	if player.Character and NPCManager then
 		NPCManager.ApplyTeamColors(player.Character, teamName)
+		NPCManager.CreateNameplate(player.Character, player.Name)
 	end
 
 	-- Move player character to slot position

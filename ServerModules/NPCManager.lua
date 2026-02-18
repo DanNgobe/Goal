@@ -20,6 +20,7 @@ local Debris = game:GetService("Debris")
 
 -- Modules
 local TeamData = require(ReplicatedStorage:WaitForChild("TeamData"))
+local NPCNames = require(ReplicatedStorage:WaitForChild("NPCNames"))
 
 -- Private variables
 local Ground = nil
@@ -27,6 +28,7 @@ local FormationData = nil
 local FieldCenter = nil
 local FieldSize = nil
 local SpawnedNPCs = {}
+local UsedNPCNames = {}  -- Track names used in current match
 
 -- Current Match Teams (country codes)
 local CurrentMatchTeams = {
@@ -171,11 +173,37 @@ function NPCManager.ApplyTeamColors(character, teamName)
 	return true
 end
 
+-- Create a nameplate on the NPC's head
+function NPCManager.CreateNameplate(character, playerName)
+	local head = character:FindFirstChild("Head")
+	if not head then return end
+
+	-- Create BillboardGui
+	local billboard = Instance.new("BillboardGui")
+	billboard.Size = UDim2.new(3, 0, 1.5, 0)
+	billboard.MaxDistance = 60
+	billboard.StudsOffset = Vector3.new(0, 1, 0)
+	billboard.Parent = head
+
+	-- Create TextLabel
+	local textLabel = Instance.new("TextLabel")
+	textLabel.Size = UDim2.new(1, 0, 1, 0)
+	textLabel.BackgroundTransparency = 1
+	textLabel.TextScaled = true
+	textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	textLabel.TextStrokeTransparency = 0.5
+	textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	textLabel.Font = Enum.Font.GothamBold
+	textLabel.Text = playerName
+	textLabel.Parent = billboard
+end
+
 -- Spawn a single NPC
 -- teamName: "HomeTeam" or "AwayTeam"
 -- role: Position role (GK, LB, etc.)
 -- worldPosition: Where to spawn the NPC
-function NPCManager.SpawnNPC(teamName, role, worldPosition)
+-- playerName: The name to display for this NPC
+function NPCManager.SpawnNPC(teamName, role, worldPosition, playerName)
 	-- Get the Male template
 	local npcFolder = ServerStorage:FindFirstChild("NPCs")
 	if not npcFolder then
@@ -191,16 +219,20 @@ function NPCManager.SpawnNPC(teamName, role, worldPosition)
 
 	-- Clone the NPC
 	local npc = npcTemplate:Clone()
-	npc.Name = teamName .. "_" .. role
+	local coolName = playerName or NPCNames.GetRandomName()
+	npc.Name = coolName:gsub(" ", "_")
 
 	-- Set up the NPC
 	local humanoid = npc:FindFirstChildOfClass("Humanoid")
 	if humanoid then
-		humanoid.DisplayName = teamName .. " " .. role
+		humanoid.DisplayName = coolName
 	end
 
 	-- Apply team colors
 	NPCManager.ApplyTeamColors(npc, teamName)
+
+	-- Create nameplate on head
+	NPCManager.CreateNameplate(npc, coolName)
 
 	-- Position the NPC
 	local rootPart = npc:FindFirstChild("HumanoidRootPart")
@@ -241,11 +273,32 @@ function NPCManager.SpawnTeamNPCs(teamName)
 	-- Get formation data
 	local formation = FormationData.GetFormation()
 	local teamNPCs = {}
+	
+	-- Generate unique names for all NPCs on this team (avoiding already used names)
+	local npcNames = NPCNames.GetUniqueBatch(#formation)
+	
+	-- Filter out already used names and regenerate if needed
+	local availableNames = {}
+	for _, name in ipairs(npcNames) do
+		if not UsedNPCNames[name] then
+			table.insert(availableNames, name)
+			UsedNPCNames[name] = true
+		end
+	end
+	
+	-- If we didn't get enough unique names, get more
+	while #availableNames < #formation do
+		local newName = NPCNames.GetRandomName()
+		if not UsedNPCNames[newName] then
+			table.insert(availableNames, newName)
+			UsedNPCNames[newName] = true
+		end
+	end
 
 	-- Spawn each position
-	for _, positionData in ipairs(formation) do
+	for i, positionData in ipairs(formation) do
 		local worldPos = NPCManager.CalculateWorldPosition(teamName, positionData.Position)
-		local npcData = NPCManager.SpawnNPC(teamName, positionData.Role, worldPos)
+		local npcData = NPCManager.SpawnNPC(teamName, positionData.Role, worldPos, availableNames[i])
 
 		if npcData then
 			table.insert(teamNPCs, npcData)
@@ -321,7 +374,8 @@ function NPCManager.RespawnNPC(npcData)
 		npcData.Role,
 		npcData.HomePosition
 	)
-
+UsedNPCNames = {}  -- Reset used names for next match
+	
 	-- Update reference
 	if newNPC then
 		npcData.Model = newNPC.Model

@@ -76,9 +76,15 @@ FormationData.SetTeamSize(TEAM_SIZE)
 -- Load GameManager
 local GameManager = require(ServerModules:WaitForChild("GameManager"))
 
+-- Load DonationHandler
+local DonationHandler = require(ServerModules:WaitForChild("DonationHandler"))
+
 -- Initialize the game
 local success = GameManager.Initialize()
 
 if not success then
 	warn("[Main] ✗ Initialization failed!")
 end
+
+-- Initialize donation system
+DonationHandler.Initialize()
