@@ -73,16 +73,12 @@ function UIController.Initialize(cameraController)
 	-- Delayed check for controls overlay (for new players)
 	task.spawn(function()
 		task.wait(10)
-		local goalRemotes = ReplicatedStorage:WaitForChild("GoalRemotes", 5)
-		if goalRemotes then
-			local checkHasScored = goalRemotes:WaitForChild("CheckHasScored", 5)
-			if checkHasScored then
-				local hasScored = checkHasScored:InvokeServer()
-				if not hasScored then
-					-- User hasn't scored yet, show controls help
-					HelpUI.Toggle()
-				end
-			end
+		local goalRemotes = ReplicatedStorage:WaitForChild("GoalRemotes")
+		local checkHasScored = goalRemotes:WaitForChild("CheckHasScored")
+		local hasScored = checkHasScored:InvokeServer()
+		if not hasScored then
+			-- User hasn't scored yet, show controls help
+			HelpUI.Toggle()
 		end
 	end)
 
@@ -100,15 +96,11 @@ end
 -- Private: Connect to ball-related events (possession)
 function UIController._ConnectBallEvents()
 	task.spawn(function()
-		local ballRemotes = ReplicatedStorage:WaitForChild("BallRemotes", 10)
-		if not ballRemotes then return end
-
-		local possessionChanged = ballRemotes:WaitForChild("PossessionChanged", 5)
-		if possessionChanged then
-			possessionChanged.OnClientEvent:Connect(function(hasBall)
-				HelpUI.Update(hasBall)
-			end)
-		end
+		local ballRemotes = ReplicatedStorage:WaitForChild("BallRemotes")
+		local possessionChanged = ballRemotes:WaitForChild("PossessionChanged")
+		possessionChanged.OnClientEvent:Connect(function(hasBall)
+			HelpUI.Update(hasBall)
+		end)
 		
 		-- Set initial state
 		HelpUI.Update(false)
@@ -126,51 +118,41 @@ function UIController._ConnectGoalEvents()
 	
 	-- Connect to goal celebration event (with scorer info)
 	task.spawn(function()
-		local goalCelebration = goalRemotes:WaitForChild("GoalCelebration", 5)
-		if goalCelebration then
-			goalCelebration.OnClientEvent:Connect(function(scorerCharacter)
-				UIController._OnGoalCelebration(scorerCharacter)
-			end)
-		end
+		local goalCelebration = goalRemotes:WaitForChild("GoalCelebration")
+		goalCelebration.OnClientEvent:Connect(function(scorerCharacter)
+			UIController._OnGoalCelebration(scorerCharacter)
+		end)
 	end)
 end
 
 -- Private: Connect to timer events
 function UIController._ConnectTimerEvents()
 	task.spawn(function()
-		local gameRemotes = ReplicatedStorage:WaitForChild("GameRemotes", 10)
-		if not gameRemotes then return end
-
-		local timerUpdate = gameRemotes:WaitForChild("TimerUpdate", 5)
-		if not timerUpdate then return end
-
+		local gameRemotes = ReplicatedStorage:WaitForChild("GameRemotes")
+		local timerUpdate = gameRemotes:WaitForChild("TimerUpdate")
 		timerUpdate.OnClientEvent:Connect(function(timeRemaining)
 			UIController._UpdateTimer(timeRemaining)
 		end)
 
 		-- Connect to match ended event
-		local matchEnded = gameRemotes:WaitForChild("MatchEnded", 5)
-		if matchEnded then
-			matchEnded.OnClientEvent:Connect(function(winningTeam, blueScore, redScore)
-				UIController._OnMatchEnded(winningTeam, blueScore, redScore)
-			end)
-		end
+		local matchEnded = gameRemotes:WaitForChild("MatchEnded")
+		matchEnded.OnClientEvent:Connect(function(winningTeam, blueScore, redScore)
+			UIController._OnMatchEnded(winningTeam, blueScore, redScore)
+		end)
 	end)
 end
 
 -- Private: Connect to general match events
 function UIController._ConnectMatchEvents()
 	task.spawn(function()
-		local gameRemotes = ReplicatedStorage:WaitForChild("GameRemotes", 10)
-		if not gameRemotes then return end
-
-		-- Match Intro Event
-		local matchIntro = gameRemotes:WaitForChild("MatchIntro", 5)
-		if matchIntro then
-			matchIntro.OnClientEvent:Connect(function(homeCode, awayCode)
-				MatchIntroUI.Show(homeCode, awayCode)
-			end)
-		end
+		-- Wait indefinitely for remotes to replicate (no timeout)
+		local gameRemotes = ReplicatedStorage:WaitForChild("GameRemotes")
+		
+		-- Match Intro Event (no timeout - must wait for it)
+		local matchIntro = gameRemotes:WaitForChild("MatchIntro")
+		matchIntro.OnClientEvent:Connect(function(homeCode, awayCode)
+			MatchIntroUI.Show(homeCode, awayCode)
+		end)
 	end)
 end
 

@@ -95,6 +95,12 @@ function SetupCharacter(character)
 	HumanoidRootPart = character:WaitForChild("HumanoidRootPart")
 	CameraRotation = Vector2.new(0, 0)
 	CharacterAngularVelocity = nil
+	
+	-- Unlock mouse on character reset
+	CameraController.UnlockMouse()
+	
+	-- Update camera subject to follow new humanoid
+	Camera.CameraSubject = Humanoid
 end
 
 -- Input began

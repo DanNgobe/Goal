@@ -374,7 +374,6 @@ function NPCManager.RespawnNPC(npcData)
 		npcData.Role,
 		npcData.HomePosition
 	)
-UsedNPCNames = {}  -- Reset used names for next match
 	
 	-- Update reference
 	if newNPC then
@@ -393,6 +392,7 @@ function NPCManager.ClearAllNPCs()
 		end
 	end
 	SpawnedNPCs = {}
+	UsedNPCNames = {}  -- Reset used names for next match
 	print("[NPCManager] Cleared all NPCs")
 end
 

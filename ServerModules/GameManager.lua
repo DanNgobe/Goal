@@ -133,7 +133,19 @@ function GameManager.Initialize()
 		-- Wait for intro animation (Intro takes ~5 seconds total with fades)
 		task.wait(6)
 		
-		-- 2. Start the match
+		-- 2. Fire match start event for sound/effects
+		local gameRemotes = ReplicatedStorage:FindFirstChild("GameRemotes")
+		if gameRemotes then
+			local matchStart = gameRemotes:FindFirstChild("MatchStart")
+			if not matchStart then
+				matchStart = Instance.new("RemoteEvent")
+				matchStart.Name = "MatchStart"
+				matchStart.Parent = gameRemotes
+			end
+			matchStart:FireAllClients()
+		end
+		
+		-- 3. Start the match timer
 		Managers.MatchTimer.Start()
 		print("[GameManager] Match started!")
 	end)
@@ -366,6 +378,15 @@ function GameManager.EndMatch()
 	-- Unfreeze all teams for the new match
 	if Managers.TeamManager then
 		Managers.TeamManager.UnfreezeAllTeams()
+	end
+
+	-- Fire match start event for new match
+	local gameRemotes = ReplicatedStorage:FindFirstChild("GameRemotes")
+	if gameRemotes then
+		local matchStart = gameRemotes:FindFirstChild("MatchStart")
+		if matchStart then
+			matchStart:FireAllClients()
+		end
 	end
 
 	-- Immediately start a new match: reset and restart timer

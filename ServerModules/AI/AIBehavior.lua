@@ -403,7 +403,7 @@ function TrySmartPass(slot, npc, root, teamName, distToGoal)
 
 	-- Determine pass type based on distance and obstacles
 	local kickType = "Ground"
-	local power = math.clamp(bestTarget.Distance / Config.Distance.PassRange, 0.3, 0.8)
+	local power = math.clamp(bestTarget.Distance / Config.Distance.PassRange, 0.4, 0.8)
 
 	-- Use air pass for longer distances or if ground path is blocked
 	local groundBlocked = AIUtils.IsPathBlocked(root.Position, bestTarget.Position, teamName)
@@ -437,16 +437,38 @@ function TryShoot(slot, npc, root, teamName)
 	local dist = (goalPos - root.Position).Magnitude
 	if dist > Config.Distance.ShootRange then return false end
 
-	-- Randomize target across the goal mouth
+	-- Randomize target across the goal mouth (aim for corners)
 	local targetPos = goalPos
 	local opponentTeam = AIUtils.GetOppositeTeam(teamName)
 	local teamData = TeamManager.GetTeam(opponentTeam)
 	local goalPart = teamData and teamData.GoalPart
 	
 	if goalPart then
-		-- Offset between roughly -8 to +8 studs (most goals are ~20 wide)
-		local offsetAmount = (math.random() - 0.5) * 20
-		targetPos = goalPos + (goalPart.CFrame.RightVector * offsetAmount)
+		-- Pick a shot zone: favor corners over center
+		local zoneRoll = math.random()
+		local horizontalOffset, verticalOffset
+		
+		if zoneRoll < 0.35 then
+			-- Bottom corners (35% chance) - most effective
+			horizontalOffset = math.random() > 0.5 and math.random(5, 9) or math.random(-9, -5)
+			verticalOffset = math.random(-2, 1)
+		elseif zoneRoll < 0.6 then
+			-- Top corners (25% chance) - harder but possible
+			horizontalOffset = math.random() > 0.5 and math.random(4, 8) or math.random(-8, -4)
+			verticalOffset = math.random(3, 6)
+		elseif zoneRoll < 0.8 then
+			-- Mid sides (20% chance) - medium difficulty
+			horizontalOffset = math.random() > 0.5 and math.random(6, 10) or math.random(-10, -6)
+			verticalOffset = math.random(0, 3)
+		else
+			-- Center area (20% chance) - easier for keeper
+			horizontalOffset = math.random(-3, 3)
+			verticalOffset = math.random(-1, 4)
+		end
+		
+		targetPos = goalPos 
+			+ (goalPart.CFrame.RightVector * horizontalOffset)
+			+ (goalPart.CFrame.UpVector * verticalOffset)
 	end
 
 	-- Check if shot is blocked by opponents

@@ -12,7 +12,7 @@
 local TEAM_SIZE = 5  -- Set to 5 for 5v5 mode
 
 -- Wait a moment for workspace to fully load
-task.wait(1)
+task.wait(2)
 
 print("============================================")
 print(string.format("    %dv%d SOCCER GAME - INITIALIZING", TEAM_SIZE, TEAM_SIZE))

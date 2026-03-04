@@ -57,25 +57,13 @@ local Settings = {
 --------------------------------------------------------------------------------
 
 function BallControlClient.Initialize()
-	-- Wait for remotes
-	BallRemotes = ReplicatedStorage:WaitForChild("BallRemotes", 10)
-	if not BallRemotes then
-		warn("[BallControlClient] BallRemotes folder not found!")
-		return false
-	end
+	-- Wait for remotes (no timeout - must wait for replication)
+	BallRemotes = ReplicatedStorage:WaitForChild("BallRemotes")
+	KickBall = BallRemotes:WaitForChild("KickBall")
+	PossessionChanged = BallRemotes:WaitForChild("PossessionChanged")
 
-	KickBall = BallRemotes:WaitForChild("KickBall", 5)
-	PossessionChanged = BallRemotes:WaitForChild("PossessionChanged", 5)
-
-	if not KickBall or not PossessionChanged then
-		warn("[BallControlClient] Ball remote events not found!")
-		return false
-	end
-
-	PlayerRemotes = ReplicatedStorage:WaitForChild("PlayerRemotes", 5)
-	if PlayerRemotes then
-		TackleRequest = PlayerRemotes:WaitForChild("TackleRequest", 5)
-	end
+	PlayerRemotes = ReplicatedStorage:WaitForChild("PlayerRemotes")
+	TackleRequest = PlayerRemotes:WaitForChild("TackleRequest")
 
 	-- Create UI
 	local PlayerGui = Player:WaitForChild("PlayerGui")

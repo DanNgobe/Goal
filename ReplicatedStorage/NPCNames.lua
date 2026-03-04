@@ -5,40 +5,40 @@
 
 local NPCNames = {}
 
--- Pool of cool player names (mix of real & believable names)
-local FirstNames = {
-	"Diego", "Lucas", "Carlos", "Miguel", "Antonio",
-	"Rafael", "Fernando", "Marco", "Paolo", "Sergio",
-	"Cristian", "Mateo", "Santiago", "Gabriel", "Jorge",
-	"Eduardo", "Ricardo", "Alejandro", "Javier", "Ramon",
-	"Dani", "Iker", "Xavi", "Andrés", "Fabio",
-	"Thiago", "Neymar", "Karim", "Zinedine", "Pelé",
-	"Ronaldo", "Ronaldinho", "Gianluigi", "Manuel", "Gennaro",
-    "Francesco", "Alessandro", "Claudio", "Giorgio", "Luca",
-    "Matteo", "Simone", "Davide", "Stefano", "Enzo",
-    "Federico", "Giovanni", "Salvatore", "Vincenzo",
+-- Pool of gamer tag style names for NPCs
+local GamerTags = {
+	"ShadowStrike", "BlazeFury", "IceVenom", "ThunderBolt", "NightHawk",
+	"PhantomX", "VortexKing", "RapidFire", "SilverBullet", "DarkKnight",
+	"LightningFast", "NovaBlast", "CrimsonWave", "FrostBite", "StealthMode",
+	"TurboCharge", "NeonGhost", "ViperStrike", "CyberNinja", "FlashBang",
+	"ArcticWolf", "BlazeStar", "PixelHunter", "DragonFist", "MidnightRush",
+	"EchoBlast", "StormChaser", "TitanForce", "OmegaRush", "AlphaStrike",
+	"QuantumLeap", "RoguePanda", "SonicBoom", "LazerBeam", "VoidWalker",
+    "NitroBoost", "PhoenixDown", "GhostRider", "IronClad", "ShadowBlade",
+    "CobaltFury", "VoltageHigh", "FrozenSoul", "BlazeRunner", "CyberPunk",
+    "DriftKing", "NeonSamurai", "ApexHunter", "RiftMaster", "PulseWave",
 }
 
--- Generate a random unique name
+-- Generate a random gamer tag
 function NPCNames.GetRandomName()
-	local firstName = FirstNames[math.random(1, #FirstNames)]
-	return firstName
+	local gamerTag = GamerTags[math.random(1, #GamerTags)]
+	return gamerTag
 end
 
--- Generate N unique names (no repeats in list)
+-- Generate N unique gamer tags (no repeats in list)
 function NPCNames.GetUniqueBatch(count)
 	local usedIndices = {}
 	local names = {}
 	
-	for i = 1, math.min(count, #FirstNames) do
-		local firstIdx = math.random(1, #FirstNames)
-		while usedIndices[firstIdx] do
-			firstIdx = math.random(1, #FirstNames)
+	for i = 1, math.min(count, #GamerTags) do
+		local tagIdx = math.random(1, #GamerTags)
+		while usedIndices[tagIdx] do
+			tagIdx = math.random(1, #GamerTags)
 		end
-		usedIndices[firstIdx] = true
+		usedIndices[tagIdx] = true
 		
-		local firstName = FirstNames[firstIdx]
-		table.insert(names, firstName)
+		local gamerTag = GamerTags[tagIdx]
+		table.insert(names, gamerTag)
 	end
 	
 	return names

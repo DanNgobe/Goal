@@ -33,11 +33,7 @@ local LastImpactTime = 0
 --------------------------------------------------------------------------------
 
 function BallEffects.Initialize()
-	Ball = workspace:WaitForChild("Ball", 10)
-	if not Ball then
-		warn("[BallEffects] Ball not found in workspace!")
-		return false
-	end
+	Ball = workspace:WaitForChild("Ball")
 	
 	-- Create trail attachments
 	CreateTrail()

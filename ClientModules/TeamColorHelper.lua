@@ -19,51 +19,38 @@ local TeamChangeCallbacks = {}
 
 -- Wait for match teams to be set
 local function WaitForMatchTeams()
-	local matchTeamsFolder = ReplicatedStorage:WaitForChild("MatchTeams", 10)
-	if not matchTeamsFolder then
-		warn("[TeamColorHelper] MatchTeams folder not found, using defaults")
-		return false
-	end
+	local matchTeamsFolder = ReplicatedStorage:WaitForChild("MatchTeams")
+	local homeValue = matchTeamsFolder:WaitForChild("HomeTeam")
+	local awayValue = matchTeamsFolder:WaitForChild("AwayTeam")
 	
-	local homeValue = matchTeamsFolder:WaitForChild("HomeTeam", 5)
-	local awayValue = matchTeamsFolder:WaitForChild("AwayTeam", 5)
+	CurrentTeamColors.HomeTeam = TeamData.GetDisplayColor(homeValue.Value)
+	CurrentTeamColors.AwayTeam = TeamData.GetDisplayColor(awayValue.Value)
 	
-	if homeValue and awayValue then
+	-- Listen for changes
+	homeValue:GetPropertyChangedSignal("Value"):Connect(function()
 		CurrentTeamColors.HomeTeam = TeamData.GetDisplayColor(homeValue.Value)
-		CurrentTeamColors.AwayTeam = TeamData.GetDisplayColor(awayValue.Value)
-		
-		-- Listen for changes
-		homeValue:GetPropertyChangedSignal("Value"):Connect(function()
-			CurrentTeamColors.HomeTeam = TeamData.GetDisplayColor(homeValue.Value)
-			print(string.format("[TeamColorHelper] HomeTeam changed to %s", homeValue.Value))
-			-- Notify callbacks
-			for _, callback in ipairs(TeamChangeCallbacks) do
-				callback()
-			end
-		end)
-		
-		awayValue:GetPropertyChangedSignal("Value"):Connect(function()
-			CurrentTeamColors.AwayTeam = TeamData.GetDisplayColor(awayValue.Value)
-			print(string.format("[TeamColorHelper] AwayTeam changed to %s", awayValue.Value))
-			-- Notify callbacks
-			for _, callback in ipairs(TeamChangeCallbacks) do
-				callback()
-			end
-		end)
-		
-		return true
-	end
+		print(string.format("[TeamColorHelper] HomeTeam changed to %s", homeValue.Value))
+		-- Notify callbacks
+		for _, callback in ipairs(TeamChangeCallbacks) do
+			callback()
+		end
+	end)
 	
-	return false
+	awayValue:GetPropertyChangedSignal("Value"):Connect(function()
+		CurrentTeamColors.AwayTeam = TeamData.GetDisplayColor(awayValue.Value)
+		print(string.format("[TeamColorHelper] AwayTeam changed to %s", awayValue.Value))
+		-- Notify callbacks
+		for _, callback in ipairs(TeamChangeCallbacks) do
+			callback()
+		end
+	end)
+	
+	return true
 end
 
 -- Initialize
 function TeamColorHelper.Initialize()
-	if not WaitForMatchTeams() then
-		-- Use defaults if not available
-		CurrentTeamColors.HomeTeam = Color3.fromRGB(0, 100, 255)  -- Blue
-		CurrentTeamColors.AwayTeam = Color3.fromRGB(255, 50, 50)   -- Red
-	end
+	WaitForMatchTeams()
 	
 	print(string.format("[TeamColorHelper] Initialized with colors: Home=%s, Away=%s", 
 		tostring(CurrentTeamColors.HomeTeam), 
