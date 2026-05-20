@@ -1,0 +1,27 @@
+[R15H] Animation Upload Results
+
+
+  22:47:36.507  [UPLOAD] OK  '[R15H] - Dance Gangnam Style'  ->  rbxassetid://108123803411938  -  Edit
+  22:47:40.809  [UPLOAD] OK  '[R15H] - Soccer Spin'  ->  rbxassetid://94948391532531  -  Edit
+  22:47:45.210  [UPLOAD] OK  '[R15H] - Soccer Tackle'  ->  rbxassetid://127395994301132  -  Edit
+  22:47:49.866  [UPLOAD] OK  '[R15H] - Soccer Slide'  ->  rbxassetid://105515485883474  -  Edit
+  22:47:53.849  [UPLOAD] OK  '[R15H] - GK Sidestep'  ->  rbxassetid://95230333121745  -  Edit
+  22:48:10.622  [UPLOAD] OK  '[R15H] - Dance Random'  ->  rbxassetid://126872480936751  -  Edit
+  22:48:15.924  [UPLOAD] OK  '[R15H] - Dance Running Man'  ->  rbxassetid://97594594456283  -  Edit
+  22:48:20.085  [UPLOAD] OK  '[R15H] - Dance Ymca'  ->  rbxassetid://83963928978630  -  Edit
+  22:48:25.546  [UPLOAD] OK  '[R15H] - GK Diving Save L'  ->  rbxassetid://104077097570606  -  Edit
+  22:48:29.486  [UPLOAD] OK  '[R15H] - GK Diving Save R'  ->  rbxassetid://107595615836359  -  Edit
+  22:48:33.428  [UPLOAD] OK  '[R15H] - GK Idle'  ->  rbxassetid://73974345355398  -  Edit
+  22:48:37.345  [UPLOAD] OK  '[R15H] - GK Jump Catch'  ->  rbxassetid://120158735199963  -  Edit
+  22:48:43.176  [UPLOAD] OK  '[R15H] - GK Place Kick'  ->  rbxassetid://73223478432127  -  Edit
+  22:48:47.596  [UPLOAD] OK  '[R15H] - GK Scoop'  ->  rbxassetid://75441372973211  -  Edit
+  22:48:51.591  [UPLOAD] OK  '[R15H] - GK Standing Catch'  ->  rbxassetid://112887896538098  -  Edit
+  22:48:57.776  [UPLOAD] OK  '[R15H] - Offensive Idle'  ->  rbxassetid://74598805521607  -  Edit
+  22:49:02.160  [UPLOAD] OK  '[R15H] - Scissor Kick'  ->  rbxassetid://74412352139090  -  Edit
+  22:49:06.506  [UPLOAD] OK  '[R15H] - Soccer Header'  ->  rbxassetid://96881341423107  -  Edit
+  22:49:12.874  [UPLOAD] OK  '[R15H] - Soccer Idle'  ->  rbxassetid://89752039183068  -  Edit
+  22:49:17.163  [UPLOAD] OK  '[R15H] - Soccer Pass L'  ->  rbxassetid://131234004506399  -  Edit
+  22:49:21.505  [UPLOAD] OK  '[R15H] - Soccer Pass R'  ->  rbxassetid://101232833818763  -  Edit
+  22:49:25.681  [UPLOAD] OK  '[R15H] - Soccer Strike L'  ->  rbxassetid://87347422649910  -  Edit
+  22:49:31.114  [UPLOAD] OK  '[R15H] - Soccer Strike R'  ->  rbxassetid://115809739746167  -  Edit
+  22:49:33.129  
