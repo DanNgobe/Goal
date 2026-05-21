@@ -36,7 +36,21 @@ function TimeController.Initialize()
 	-- Loading UI Modules
 	ScoreboardUI = require(script.Parent.Parent.UI.ScoreboardUI)
 	IntermissionUI = require(script.Parent.Parent.UI.IntermissionUI)
-	
+
+	-- Score sync helper: reads current attributes and pushes them to the scoreboard
+	local function SyncScores()
+		local homeScore = GameStateFolder:GetAttribute("HomeScore") or 0
+		local awayScore = GameStateFolder:GetAttribute("AwayScore") or 0
+		ScoreboardUI.UpdateScores(homeScore, awayScore)
+	end
+
+	-- Wire score attribute signals so the scoreboard updates whenever a goal is scored
+	GameStateFolder:GetAttributeChangedSignal("HomeScore"):Connect(SyncScores)
+	GameStateFolder:GetAttributeChangedSignal("AwayScore"):Connect(SyncScores)
+
+	-- Sync scores immediately to display the correct initial state (0–0 or resumed match)
+	SyncScores()
+
 	-- Initial Sync
 	TimeController._SyncTimerLoop()
 	

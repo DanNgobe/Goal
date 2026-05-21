@@ -70,7 +70,7 @@ end
 
 -- ── Attachment ────────────────────────────────────────────────────────────────
 
-local function CleanBallConstraints()
+local function _CleanBallConstraints()
 	if BallAttachment        then BallAttachment:Destroy();        BallAttachment        = nil end
 	if BallSpinner           then BallSpinner:Destroy();           BallSpinner           = nil end
 	if BallAxle              then BallAxle:Destroy();              BallAxle              = nil end
@@ -91,8 +91,8 @@ local function CleanBallConstraints()
 	end
 end
 
-local function DetachBall()
-	CleanBallConstraints()
+local function _DetachBall()
+	_CleanBallConstraints()
 
 	if Ball then
 		Ball.CanCollide = true
@@ -122,7 +122,7 @@ end
 
 local function AttachBallToCharacter(character, rootPart)
 	-- Clean up any existing attachment first
-	CleanBallConstraints()
+	_CleanBallConstraints()
 
 	local isGK = IsGoalkeeper(character)
 
@@ -283,13 +283,13 @@ end
 
 function BallManager.KickBall(character, kickType, power, direction)
 	if CurrentOwnerCharacter ~= character then return false end
-	if not character then DetachBall(); return false end
+	if not character then _DetachBall(); return false end
 
 	LastKickerCharacter = character
 
 	local rootPart = character:FindFirstChild("HumanoidRootPart")
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not rootPart then DetachBall(); return false end
+	if not rootPart then _DetachBall(); return false end
 
 	power       = math.clamp(power or 1, 0, 1)
 	local curve = math.sqrt(power)  -- Square root curve: more responsive at low power
@@ -306,7 +306,7 @@ function BallManager.KickBall(character, kickType, power, direction)
 	local height    = maxHeight * curve
 
 	-- Detach, then position ball slightly forward to avoid immediate re-touch
-	DetachBall()
+	_DetachBall()
 	Ball.CFrame = CFrame.new(rootPart.Position + (direction * 3) + Vector3.new(0, -1, 0))
 	Ball.AssemblyLinearVelocity  = Vector3.zero
 	-- Apply random spin for visual variety
@@ -416,42 +416,89 @@ function BallManager._SetupKickHandler()
 	KickBall.OnServerEvent:Connect(function(player, kickType, power, direction)
 		local character = player.Character
 		if not character then return end
+
+		-- Requirement 13.1 / 13.2: Verify the requesting player currently owns the ball
+		local currentOwner = BallManager.GetCurrentOwner()
+		if character ~= currentOwner then
+			local ownerName = currentOwner and currentOwner.Name or "none"
+			Logger:warn(string.format(
+				"KickBall rejected: '%s' does not own the ball (current owner: '%s')",
+				player.Name, ownerName
+			))
+			return
+		end
+
+		-- Requirement 13.3: Clamp power to valid range [0, 1]
+		power = math.clamp(typeof(power) == "number" and power or 0, 0, 1)
+
+		-- Requirement 13.3: Reject if direction is not a finite, non-zero Vector3.
+		-- NaN self-inequality check (n ~= n is true only for NaN) covers corrupted components.
+		local dirValid = typeof(direction) == "Vector3"
+			and direction.Magnitude > 0
+			and direction.X == direction.X
+			and direction.Y == direction.Y
+			and direction.Z == direction.Z
+			and math.abs(direction.X) ~= math.huge
+			and math.abs(direction.Y) ~= math.huge
+			and math.abs(direction.Z) ~= math.huge
+
+		if not dirValid then
+			Logger:warn(string.format(
+				"KickBall rejected: invalid direction from '%s'",
+				player.Name
+			))
+			return
+		end
+
 		BallManager.KickBall(character, kickType, power, direction)
 	end)
 end
 
 -- ── Heartbeat ─────────────────────────────────────────────────────────────────
 
+-- Returns true if the ball was reset, signalling the caller to skip further
+-- processing for this frame.
+local function HandleOutOfBounds()
+	if Ball.Position.Y < Config.Reset_Height then
+		BallManager.Reset()
+		return true
+	end
+	return false
+end
+
+-- Applies velocity damping when the ball is loose (no current owner).
+local function HandleLooseBallDamping()
+	if not CurrentOwnerCharacter and Ball.AssemblyLinearVelocity.Magnitude > 0.1 then
+		Ball.AssemblyLinearVelocity = Ball.AssemblyLinearVelocity * Config.Damping
+	end
+end
+
+-- Detaches the ball from a dead owner; updates the dribble spin rate for a
+-- living owner.
+local function HandleOwnerCheck()
+	if not CurrentOwnerCharacter then return end
+
+	local hum = CurrentOwnerCharacter:FindFirstChildOfClass("Humanoid")
+	if not hum or hum.Health <= 0 then
+		_DetachBall()
+		return
+	end
+
+	if BallSpinner then
+		local root = CurrentOwnerCharacter:FindFirstChild("HumanoidRootPart")
+		if root then
+			BallSpinner.AngularVelocity = root.AssemblyLinearVelocity.Magnitude * Config.Axle_SpinRate
+		end
+	end
+end
+
 function BallManager._SetupHeartbeat()
 	HeartbeatConnection = RunService.Heartbeat:Connect(function()
 		if not Ball or not Ball.Parent then return end
 
-		-- Out-of-bounds reset
-		if Ball.Position.Y < Config.Reset_Height then
-			BallManager.Reset()
-			return
-		end
-
-		-- Damp loose ball
-		if not CurrentOwnerCharacter and Ball.AssemblyLinearVelocity.Magnitude > 0.1 then
-			Ball.AssemblyLinearVelocity = Ball.AssemblyLinearVelocity * Config.Damping
-		end
-
-		-- Auto-detach dead owner; update spin speed
-		if CurrentOwnerCharacter then
-			local hum = CurrentOwnerCharacter:FindFirstChildOfClass("Humanoid")
-			if not hum or hum.Health <= 0 then
-				DetachBall()
-				return
-			end
-
-			if BallSpinner then
-				local root = CurrentOwnerCharacter:FindFirstChild("HumanoidRootPart")
-				if root then
-					BallSpinner.AngularVelocity = root.AssemblyLinearVelocity.Magnitude * Config.Axle_SpinRate
-				end
-			end
-		end
+		if HandleOutOfBounds() then return end
+		HandleLooseBallDamping()
+		HandleOwnerCheck()
 	end)
 end
 
@@ -461,7 +508,7 @@ function BallManager._SetupPlayerCleanup()
 	Players.PlayerRemoving:Connect(function(player)
 		local character = player.Character
 		if character then
-			if CurrentOwnerCharacter == character then DetachBall() end
+			if CurrentOwnerCharacter == character then _DetachBall() end
 			TouchCooldown[character] = nil
 		end
 	end)
@@ -508,7 +555,7 @@ end
 
 -- Reset ball to field center (called on goal and match restart)
 function BallManager.Reset(spawnCFrame)
-	DetachBall()
+	_DetachBall()
 
 	if not Ball then return end
 	local center = spawnCFrame or (FieldCenter and CFrame.new(FieldCenter + Vector3.new(0, 5, 0))) or CFrame.new(0, 5, 0)
@@ -521,7 +568,7 @@ end
 
 -- Explicit public detach (for MatchManager / round resets)
 function BallManager.DetachBall()
-	DetachBall()
+	_DetachBall()
 end
 
 function BallManager.GetBall()
@@ -543,7 +590,7 @@ end
 function BallManager.Cleanup()
 	if TouchConnection    then TouchConnection:Disconnect()    end
 	if HeartbeatConnection then HeartbeatConnection:Disconnect() end
-	DetachBall()
+	_DetachBall()
 	Logger:info("BallManager cleaned up.")
 end
 

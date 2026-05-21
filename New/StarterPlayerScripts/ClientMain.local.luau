@@ -14,6 +14,8 @@ local TimeController     = require(script.Parent.Controllers.TimeController)
 local SoundController    = require(script.Parent.Controllers.SoundController)
 local BallController     = require(script.Parent.Controllers.BallController)
 local StaminaController  = require(script.Parent.Controllers.StaminaController)
+local CameraController   = require(script.Parent.Controllers.CameraController)
+local BallEffects        = require(script.Parent.Controllers.BallEffects)
 
 -- Helper Modules
 local TeamHelper = require(script.Parent.Utils.TeamHelper)
@@ -31,6 +33,8 @@ local function Bootstrap()
 	TimeController.Initialize()
 	BallController.Initialize()
 	StaminaController.Initialize()
+	CameraController.Initialize()
+	BallEffects.Initialize()
 	
 	Logger:info("Client bootstrap complete!")
 end

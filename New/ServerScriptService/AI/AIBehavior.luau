@@ -65,6 +65,15 @@ local Config = {
 	PassCooldown     = 1.5,
 	DribbleDelay     = 1.2,
 	PressureDistance = 15,
+
+	Behavior = {
+		ChaseDistance                 = 18,   -- Distance at which Chaser switches to active pursuit
+		SecondPressCutoffDist         = 20,   -- Lead distance ahead of ball for SecondPress cutoff
+		GoalCoverDist                 = 22,   -- Lead distance ahead of ball for GoalCover position
+		SupportForwardRunLead         = 15,   -- Min studs ahead of ball for attacking Support runs
+		AttackRunClampFraction        = 0.9,  -- Max fraction of pitch length for forward run target
+		PossessionDribbleKickThreshold = 0.3, -- Seconds held before emergency dribble-kick triggers
+	},
 }
 
 --------------------------------------------------------------------------------
@@ -289,7 +298,7 @@ function HandleRoleBasedBehavior(slot, npc, humanoid, root, teamName, role, dt, 
 				local dist           = (targetPosition - root.Position).Magnitude
 
 				-- CHASE LOGIC
-				if dist < 18 then
+				if dist < Config.Behavior.ChaseDistance then
 					humanoid.WalkSpeed = shouldSprint and Config.Speed.Sprint or Config.Speed.Chase
 
 					-- 1. Forward Lead: Aim ahead toward the goal to cut them off
@@ -341,7 +350,7 @@ function HandleRoleBasedBehavior(slot, npc, humanoid, root, teamName, role, dt, 
 				local ownGoal = AIUtils.GetOwnGoalPosition(teamName)
 				if ownGoal and ball then
 					local ballToGoalDir = (ownGoal - ball.Position).Unit
-					local cutoffPoint   = ball.Position + (ballToGoalDir * 20)
+					local cutoffPoint   = ball.Position + (ballToGoalDir * Config.Behavior.SecondPressCutoffDist)
 					MoveToTarget(humanoid, root, cutoffPoint, teamName, npc)
 				end
 				return
@@ -350,7 +359,7 @@ function HandleRoleBasedBehavior(slot, npc, humanoid, root, teamName, role, dt, 
 				local ownGoal = AIUtils.GetOwnGoalPosition(teamName)
 				if ownGoal and ball then
 					local ballToGoalDir = (ownGoal - ball.Position).Unit
-					local coverPosition = ball.Position + (ballToGoalDir * 22)
+					local coverPosition = ball.Position + (ballToGoalDir * Config.Behavior.GoalCoverDist)
 					MoveToTarget(humanoid, root, coverPosition, teamName, npc)
 				end
 				return
@@ -397,12 +406,12 @@ function HandleRoleBasedBehavior(slot, npc, humanoid, root, teamName, role, dt, 
 				local ballProj = (ball.Position - ownGoal):Dot(attackDir)
 				local playerProj = (root.Position - ownGoal):Dot(attackDir)
 				
-				-- Target to stay at least 15 studs ahead of the ball along the attack axis
-				local runProgress = math.max(ballProj + 15, playerProj)
+				-- Target to stay at least Config.Behavior.SupportForwardRunLead studs ahead of the ball along the attack axis
+				local runProgress = math.max(ballProj + Config.Behavior.SupportForwardRunLead, playerProj)
 				
-				-- Clamp to avoid running past 90% of pitch length
+				-- Clamp to avoid running past Config.Behavior.AttackRunClampFraction of pitch length
 				local pitchLength = (opponentGoal - ownGoal).Magnitude
-				runProgress = math.clamp(runProgress, 0, pitchLength * 0.9)
+				runProgress = math.clamp(runProgress, 0, pitchLength * Config.Behavior.AttackRunClampFraction)
 				
 				-- Build target position: progress along attack axis + original home position lateral width
 				local targetPos = ownGoal + (attackDir * runProgress)
@@ -472,7 +481,7 @@ function HandleBallPossession(slot, npc, humanoid, root, teamName, dt, npcId)
 
 	-- 3. EMERGENCY CLEARANCE: Under extreme pressure with no pass option
 	-- If closest enemy is very close and we haven't passed, nudge the ball forward (dribble kick)
-	if isUnderPressure and closestEnemyDist < 4 and timeHeld > 0.3 then
+	if isUnderPressure and closestEnemyDist < 4 and timeHeld > Config.Behavior.PossessionDribbleKickThreshold then
 		-- Try to nudge forward toward opponent goal
 		if goalPos then
 			local clearDir = (goalPos - root.Position).Unit

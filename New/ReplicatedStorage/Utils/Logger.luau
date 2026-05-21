@@ -18,7 +18,8 @@ local LOG_LEVELS = {
 	DEBUG = 0,
 	INFO = 1,
 	WARN = 2,
-	ERROR = 3
+	ERROR = 3,
+	FATAL = 4
 }
 
 -- Icons for console output
@@ -26,7 +27,8 @@ local ICONS = {
 	DEBUG = "🔍",
 	INFO = "ℹ️",
 	WARN = "⚠️",
-	ERROR = "❌"
+	ERROR = "❌",
+	FATAL = "❌"
 }
 
 -- Global configuration
@@ -56,7 +58,12 @@ function Logger:_log(levelName, ...)
 	if levelName == "WARN" then
 		warn(prefix, unpack(args))
 	elseif levelName == "ERROR" then
-		error(prefix .. " " .. tostring(args[1] or "Unknown Error"), 2)
+		-- ERROR: Use warn() to log without halting execution
+		warn(prefix, unpack(args))
+	elseif levelName == "FATAL" then
+		-- FATAL: Log and then throw error
+		warn(prefix, unpack(args))
+		error(prefix .. " " .. tostring(args[1] or "Fatal Error"), 2)
 	else
 		print(prefix, unpack(args))
 	end
@@ -77,6 +84,10 @@ end
 
 function Logger:error(...)
 	self:_log("ERROR", ...)
+end
+
+function Logger:fatal(...)
+	self:_log("FATAL", ...)
 end
 
 -- Global Control (Can be called from Server/Client main)

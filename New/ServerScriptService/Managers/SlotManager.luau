@@ -22,6 +22,9 @@ local PhysicsService = game:GetService("PhysicsService")
 local TeamData = require(ReplicatedStorage:WaitForChild("TeamData"))
 local FormationData = require(ReplicatedStorage:WaitForChild("FormationData"))
 
+-- Dependencies (set during initialization)
+local PlayerManagerRef = nil
+
 -- Private constants
 local TEAM_SIZE = 5
 
@@ -31,9 +34,10 @@ local FieldCenter = nil
 local FieldSize = nil
 
 -- Current Match Teams (country codes)
+-- Note: This will be populated by GameManager via SetMatchTeams()
 local CurrentMatchCodes = {
-	HomeTeam = "BRA",
-	AwayTeam = "ARG"
+	HomeTeam = nil,
+	AwayTeam = nil
 }
 
 -- Team data structure
@@ -45,6 +49,12 @@ local Teams = {
 -- Track player assignments: [Player] = {Team = "HomeTeam", SlotIndex = index}
 local PlayerAssignments = {}
 local LastTeleport = {} -- Private debounce table
+
+-- Set PlayerManager dependency (called by GameManager after PlayerManager is initialized)
+function SlotManager.SetPlayerManager(playerManager)
+	PlayerManagerRef = playerManager
+	Logger:info("PlayerManager dependency set")
+end
 
 -- Initialize the Slot Manager
 function SlotManager.Initialize(groundPart, teleporterFolder)
@@ -255,6 +265,11 @@ function SlotManager.AssignPlayer(player, teamName)
 		SlotIndex = selectedSlot.Index
 	}
 
+	-- Notify PlayerManager of assignment
+	if PlayerManagerRef then
+		PlayerManagerRef.OnPlayerAssigned(player, teamName, selectedSlot.Index)
+	end
+
 	player:LoadCharacter()
 	
 	-- Notify client that they have joined (hides UI)
@@ -286,6 +301,11 @@ function SlotManager.RemovePlayer(player)
 		local posData = formation[slot.Index]
 		local worldPos = SlotManager.CalculateWorldPosition(assignment.Team, posData.Position)
 		slot.Model = SlotManager.SpawnCharacter(assignment.Team, slot.Role, worldPos, true)
+	end
+
+	-- Notify PlayerManager of removal
+	if PlayerManagerRef then
+		PlayerManagerRef.OnPlayerRemoved(player)
 	end
 
 	PlayerAssignments[player] = nil
@@ -322,6 +342,7 @@ end
 function SlotManager.SetMatchTeams(homeCode, awayCode)
 	CurrentMatchCodes.HomeTeam = homeCode
 	CurrentMatchCodes.AwayTeam = awayCode
+	Logger:info("Match teams set to Home:", homeCode, "Away:", awayCode)
 end
 
 -- ── AI Helpers ────────────────────────────────────────────────────────────────
@@ -349,6 +370,83 @@ end
 function SlotManager.IsGoalkeeper(character)
 	if not character then return false end
 	return character:GetAttribute("Role") == "GK"
+end
+
+-- Returns true if there is at least one non-GK AI slot available for the given team (Requirement 13.4)
+function SlotManager.HasAvailableSlot(teamName)
+	local team = Teams[teamName]
+	if not team then return false end
+
+	for _, slot in ipairs(team.Slots) do
+		if slot.IsAI and slot.Role ~= "GK" then
+			return true
+		end
+	end
+	return false
+end
+
+-- Switch a player from their current slot to a new AI slot (D.2)
+-- Vacates the old slot (spawns an AI NPC there) and moves the player into the new slot.
+function SlotManager.SwitchPlayerSlot(player, newSlotIndex)
+	local assignment = PlayerAssignments[player]
+	if not assignment then
+		Logger:warn("SwitchPlayerSlot: player", player.Name, "has no assignment")
+		return false
+	end
+
+	local teamName    = assignment.Team
+	local team        = Teams[teamName]
+	local oldSlotIdx  = assignment.SlotIndex
+	local oldSlot     = team.Slots[oldSlotIdx]
+	local newSlot     = team.Slots[newSlotIndex]
+
+	if not oldSlot or not newSlot then
+		Logger:warn("SwitchPlayerSlot: invalid slot indices", oldSlotIdx, newSlotIndex)
+		return false
+	end
+
+	if not newSlot.IsAI then
+		Logger:warn("SwitchPlayerSlot: target slot", newSlotIndex, "is not AI-controlled")
+		return false
+	end
+
+	-- 1. Destroy the AI model currently in the new slot
+	if newSlot.Model then
+		newSlot.Model:Destroy()
+		newSlot.Model = nil
+	end
+
+	-- 2. Move the player into the new slot
+	newSlot.Controller = player
+	newSlot.IsAI       = false
+
+	-- 3. Vacate the old slot — restore it to AI control
+	oldSlot.Controller = nil
+	oldSlot.IsAI       = true
+
+	-- Spawn a replacement AI NPC at the old slot's home position
+	local formation    = FormationData.GetDefaultFormation()
+	local posData      = formation[oldSlotIdx]
+	local oldWorldPos  = SlotManager.CalculateWorldPosition(teamName, posData.Position)
+	oldSlot.HomePosition = oldWorldPos
+	oldSlot.Model      = SlotManager.SpawnCharacter(teamName, oldSlot.Role, oldWorldPos, true)
+
+	-- 4. Update PlayerAssignments
+	PlayerAssignments[player] = {
+		Team      = teamName,
+		SlotIndex = newSlotIndex
+	}
+
+	-- 5. Notify PlayerManager
+	if PlayerManagerRef then
+		PlayerManagerRef.OnPlayerAssigned(player, teamName, newSlotIndex)
+	end
+
+	-- 6. Respawn the player at the new slot position
+	player:LoadCharacter()
+
+	Logger:info(player.Name, "switched from slot", oldSlotIdx, "to slot", newSlotIndex, "on", teamName)
+	return true
 end
 
 -- Get a slot by model

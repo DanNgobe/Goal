@@ -54,6 +54,7 @@ local Settings = {
 -- Remotes
 local KickBall          = nil
 local PossessionChanged = nil
+local SwitchSlotRequest = nil
 
 -- ── Character ─────────────────────────────────────────────────────────────────
 
@@ -185,6 +186,16 @@ local function SetupInput()
 			StartCharge("Ground")
 		elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
 			StartCharge("Air")
+		elseif input.KeyCode == Enum.KeyCode.C then
+			-- D.2: Request slot switch only when player does NOT have possession
+			if HasBall then
+				Logger:debug("C pressed but player has ball — ignoring slot switch")
+			else
+				if SwitchSlotRequest then
+					SwitchSlotRequest:FireServer()
+					Logger:debug("Fired SwitchSlotRequest")
+				end
+			end
 		end
 	end)
 
@@ -237,6 +248,10 @@ function BallController.Initialize()
 	local ballEvents = events:WaitForChild("BallEvents")
 	KickBall          = ballEvents:WaitForChild("KickBall")
 	PossessionChanged = ballEvents:WaitForChild("PossessionChanged")
+
+	-- D.2: Get slot-switch remote (created by GameManager)
+	local playerRemotes = events:WaitForChild("PlayerRemotes")
+	SwitchSlotRequest   = playerRemotes:WaitForChild("SwitchSlotRequest")
 
 	-- Create BallUI ScreenGui for KickChargeUI
 	local PlayerGui = Player:WaitForChild("PlayerGui")

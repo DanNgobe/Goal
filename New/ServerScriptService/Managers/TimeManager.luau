@@ -47,6 +47,8 @@ function TimeManager.Initialize(duration)
 	GameStateFolder:SetAttribute("MatchState", "Warmup")
 	GameStateFolder:SetAttribute("IsPaused", false)
 	GameStateFolder:SetAttribute("ScoringTeam", "")
+	GameStateFolder:SetAttribute("MatchResult", "") -- Initialize MatchResult to empty string
+	GameStateFolder:SetAttribute("MatchEndBroadcast", false) -- Initialize MatchEndBroadcast to false
 	
 	CurrentState = "Warmup"
 	MatchEndTime = 0
@@ -124,8 +126,30 @@ function TimeManager.OnGoalScored(teamName)
 	end)
 end
 
--- Stop/Finish match
+-- Stop/Finish match (Requirement 2.1, 2.2, 2.6)
 function TimeManager.Stop()
+	if not IsInitialized then return end
+	
+	-- Get current scores from GameStateFolder (Requirement 2.2)
+	local homeScore = GameStateFolder:GetAttribute("HomeScore") or 0
+	local awayScore = GameStateFolder:GetAttribute("AwayScore") or 0
+	
+	-- Determine winner based on score comparison (Requirements 2.3, 2.4, 2.5)
+	local matchResult = ""
+	if homeScore > awayScore then
+		matchResult = "HomeWin"
+		Logger:info("Match Finished - HomeWin:", homeScore, "-", awayScore)
+	elseif awayScore > homeScore then
+		matchResult = "AwayWin"
+		Logger:info("Match Finished - AwayWin:", homeScore, "-", awayScore)
+	else
+		matchResult = "Draw"
+		Logger:info("Match Finished - Draw:", homeScore, "-", awayScore)
+	end
+	
+	-- Set MatchResult and MatchState atomically (Requirement 2.6)
+	-- Both attributes are set within the same server frame
+	GameStateFolder:SetAttribute("MatchResult", matchResult)
 	CurrentState = "Finished"
 	IsPaused = false
 	TimeManager._UpdateAttributes()

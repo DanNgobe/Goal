@@ -17,17 +17,30 @@
 local TrajectoryPredictor = {}
 
 -- Services
-local Workspace    = game:GetService("Workspace")
-local RunService   = game:GetService("RunService")
+local Workspace           = game:GetService("Workspace")
+local RunService          = game:GetService("RunService")
+local ReplicatedStorage   = game:GetService("ReplicatedStorage")
+
+-- BallConfig: shared physics constants (server + client).
+-- If unavailable, the module disables itself gracefully.
+local BallConfig
+local _BallConfigAvailable = false
+do
+	local ok, result = pcall(function()
+		return require(ReplicatedStorage:WaitForChild("BallConfig", 5))
+	end)
+	if ok and result then
+		BallConfig = result
+		_BallConfigAvailable = true
+	else
+		warn("[TrajectoryPredictor] BallConfig unavailable – trajectory preview disabled")
+	end
+end
 
 -- ── Settings ──────────────────────────────────────────────────────────────────
--- These must match BallManager server physics values!
+-- Physics constants are read directly from BallConfig at runtime.
+-- Only non-BallConfig local settings remain here.
 local Settings = {
-	-- Physics (mirror BallConfig values)
-	GroundKickMaxForce  = 65,   -- Mirror BallConfig.Ground_Kick_Max
-	GroundKickMaxHeight = 15,
-	AirKickMaxForce     = 75,   -- Mirror BallConfig.Air_Kick_Max
-	AirKickMaxHeight    = 65,
 	KickForceMult       = 1.3,  -- Same as server: force = maxPower * sqrt(power) * 1.3
 	Gravity             = nil,  -- Set at runtime from Workspace.Gravity
 
@@ -161,12 +174,12 @@ local function GetInitialVelocity(kickType, direction, power)
 	local curve = math.sqrt(power)  -- Mirror server's math.sqrt(power)
 
 	if kickType == "Ground" then
-		local force  = Settings.GroundKickMaxForce  * curve * Settings.KickForceMult
-		local height = Settings.GroundKickMaxHeight * curve
+		local force  = BallConfig.Ground_Kick_Max    * curve * Settings.KickForceMult
+		local height = BallConfig.Ground_Kick_Height * curve
 		return (direction * force) + Vector3.new(0, height, 0)
 	else
-		local force  = Settings.AirKickMaxForce  * curve * Settings.KickForceMult
-		local height = Settings.AirKickMaxHeight * curve
+		local force  = BallConfig.Air_Kick_Max    * curve * Settings.KickForceMult
+		local height = BallConfig.Air_Kick_Height * curve
 		return (direction * force) + Vector3.new(0, height, 0)
 	end
 end
@@ -175,6 +188,7 @@ end
 
 function TrajectoryPredictor.Update(kickType, startPos, direction, power)
 	if not IsVisible then return end
+	if not _BallConfigAvailable then return end
 
 	Settings.Gravity = Workspace.Gravity
 
@@ -233,6 +247,11 @@ end
 -- ── Initialization ─────────────────────────────────────────────────────────────
 
 function TrajectoryPredictor.Initialize()
+	if not _BallConfigAvailable then
+		warn("[TrajectoryPredictor] Skipping initialization – BallConfig unavailable")
+		return
+	end
+
 	-- Destroy old folder if it exists (e.g. from a previous run in Studio)
 	local old = Workspace:FindFirstChild("TrajectoryPreview")
 	if old then old:Destroy() end
