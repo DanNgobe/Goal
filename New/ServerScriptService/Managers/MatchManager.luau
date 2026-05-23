@@ -41,6 +41,9 @@ local GameStateFolder = nil
 local HomeGoalConnection = nil
 local AwayGoalConnection = nil
 
+-- Forward declaration so OnGoalScored can call it before its definition
+local RepositionAllCharacters
+
 -- Setup goal detection system
 local function SetupGoalDetection()
 	-- Get goal parts from workspace
@@ -135,6 +138,20 @@ function MatchManager.OnGoalScored(scoringTeam)
 	-- This also handles Requirement 1.7: duplicate prevention during "GoalScored" state
 	TimeManager.OnGoalScored(scoringTeam)
 
+	-- Reset ball and reposition all characters once the celebration ends
+	task.spawn(function()
+		-- Wait for MatchState to leave GoalScored (TimeManager handles the delay)
+		while TimeManager.GetState() == "GoalScored" do
+			task.wait(0.5)
+		end
+		-- Only reset if we returned to Active (not Finished)
+		if TimeManager.GetState() == "Active" then
+			BallManager.Reset()
+			RepositionAllCharacters()
+			Logger:info("Post-goal reset: ball and characters repositioned.")
+		end
+	end)
+
 	-- D.4: Goal celebration dance for scoring AI characters
 	local lastKicker = BallManager.GetLastKicker()
 	if lastKicker and lastKicker:GetAttribute("IsAI") == true then
@@ -189,7 +206,7 @@ function MatchManager.OnGoalScored(scoringTeam)
 end
 
 -- Reposition all characters to their default formation positions (Requirement 3.3, 3.4)
-local function RepositionAllCharacters()
+RepositionAllCharacters = function()
 	Logger:info("Repositioning all characters to default formation positions...")
 	
 	-- Reposition both teams
@@ -243,6 +260,25 @@ function MatchManager.Initialize(timeManager, ballManager, slotManager, playerMa
 	if ballManager then BallManager = ballManager end
 	if slotManager then SlotManager = slotManager end
 	if playerManager then PlayerManagerRef = playerManager end
+
+	-- D.5: Randomize teams for the very first match too
+	local newHome, newAway = PickNewTeams()
+	Logger:info("First match teams: Home =", newHome, "Away =", newAway)
+	SlotManager.SetMatchTeams(newHome, newAway)
+	local matchTeams = ReplicatedStorage:FindFirstChild("MatchTeams")
+	if matchTeams then
+		local homeTV = matchTeams:FindFirstChild("HomeTeam")
+		local awayTV = matchTeams:FindFirstChild("AwayTeam")
+		if homeTV then homeTV.Value = newHome end
+		if awayTV then awayTV.Value = newAway end
+	end
+	for _, teamName in ipairs({"HomeTeam", "AwayTeam"}) do
+		for _, slot in ipairs(SlotManager.GetTeamSlots(teamName)) do
+			if slot.IsAI and slot.Model then
+				SlotManager.ApplyTeamColors(slot.Model, teamName)
+			end
+		end
+	end
 	
 	-- Setup goal detection system (Requirements 1.1-1.8)
 	SetupGoalDetection()

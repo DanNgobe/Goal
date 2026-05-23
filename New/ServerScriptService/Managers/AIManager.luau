@@ -204,10 +204,18 @@ end
 StartUpdateLoop = function()
 	if UpdateConnection then UpdateConnection:Disconnect() end
 
+	local GameStateFolder = game:GetService("ReplicatedStorage"):FindFirstChild("GameState")
+
 	UpdateConnection = RunService.Heartbeat:Connect(function()
 		local now = tick()
 		if now - State.LastUpdate < Config.UpdateInterval then return end
 		State.LastUpdate = now
+
+		-- Only run AI during Active play; pause during Warmup, GoalScored, and Finished
+		if GameStateFolder then
+			local state = GameStateFolder:GetAttribute("MatchState")
+			if state ~= "Active" then return end
+		end
 
 		UpdateBallRoles()
 		UpdateAllAI()

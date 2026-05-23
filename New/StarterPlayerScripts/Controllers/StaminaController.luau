@@ -47,6 +47,18 @@ local StaminaFrame   = nil   -- Reference to the in-game Stamina frame
 local CurrentStamina = MAX_STAMINA
 local IsSprinting    = false
 
+-- ── State Guard ───────────────────────────────────────────────────────────────
+-- Returns true when the match is in a state where players should be able to move
+local GameStateFolder = nil
+local function IsActivePlay()
+	if not GameStateFolder then
+		GameStateFolder = game:GetService("ReplicatedStorage"):FindFirstChild("GameState")
+	end
+	if not GameStateFolder then return true end -- default allow if folder not ready
+	local state = GameStateFolder:GetAttribute("MatchState")
+	return state == "Active"
+end
+
 -- ── UI Discovery ──────────────────────────────────────────────────────────────
 
 -- Searches every LayerCollector in PlayerGui for a Frame named "Stamina"
@@ -76,6 +88,22 @@ end
 -- ── Heartbeat ─────────────────────────────────────────────────────────────────
 
 local function OnHeartbeat(dt)
+	if not Humanoid then return end
+
+	-- Freeze player during warmup, goal celebrations, and match end
+	if not IsActivePlay() then
+		if Humanoid.WalkSpeed ~= 0 then
+			Humanoid.WalkSpeed = 0
+		end
+		IsSprinting = false
+		return
+	end
+
+	-- Restore correct speed if we just returned to Active
+	if Humanoid.WalkSpeed == 0 then
+		Humanoid.WalkSpeed = NORMAL_SPEED
+	end
+
 	if IsSprinting then
 		CurrentStamina = math.max(0, CurrentStamina - DRAIN_RATE * dt)
 		if CurrentStamina <= 0 then

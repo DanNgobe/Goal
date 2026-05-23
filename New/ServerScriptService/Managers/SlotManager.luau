@@ -111,12 +111,21 @@ function SlotManager.SetupTeleporters(folder)
 		if not pad then return end
 		
 		pad.Touched:Connect(function(hit)
-			local player = game.Players:GetPlayerFromCharacter(hit.Parent)
-			if player and (not LastTeleport[player] or tick() - LastTeleport[player] > 1) then
-				LastTeleport[player] = tick()
-				Logger:info(player.Name, "joined", teamName, "via teleporter")
-				SlotManager.AssignPlayer(player, teamName)
-			end
+			local character = hit.Parent
+			local player = game.Players:GetPlayerFromCharacter(character)
+			if not player then return end
+
+			-- Debounce: 3-second cooldown per player to prevent rapid re-triggers
+			-- from multiple body parts and post-respawn re-touches
+			local now = tick()
+			if LastTeleport[player] and (now - LastTeleport[player]) < 3 then return end
+
+			-- Skip if already assigned (avoids double-spawn on respawn touches)
+			if PlayerAssignments[player] then return end
+
+			LastTeleport[player] = now
+			Logger:info(player.Name, "joined", teamName, "via teleporter")
+			SlotManager.AssignPlayer(player, teamName)
 		end)
 	end
 	

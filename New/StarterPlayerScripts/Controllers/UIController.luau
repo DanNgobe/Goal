@@ -70,8 +70,16 @@ function UIController.Initialize()
 	local playerJoined = playerRemotes:WaitForChild("PlayerJoined")
 	
 	playerJoined.OnClientEvent:Connect(function()
-		Logger:info("Player joined a team. Hiding TeamJoinUI.")
+		Logger:info("Player joined a team. Hiding TeamJoinUI and locking mouse.")
 		TeamJoinUI.Hide()
+		-- Lock mouse so the player has full control on the pitch
+		local playerScripts = Player:WaitForChild("PlayerScripts")
+		local toggleEvent = playerScripts:FindFirstChild("ToggleMouseLock")
+		if toggleEvent then
+			toggleEvent:Fire()
+		else
+			game:GetService("UserInputService").MouseBehavior = Enum.MouseBehavior.LockCenter
+		end
 	end)
 	
 	Logger:info("UI Controller Initialized Successfully!")

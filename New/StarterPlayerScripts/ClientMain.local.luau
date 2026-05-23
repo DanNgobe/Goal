@@ -33,6 +33,9 @@ local function SetupMouseLockToggle()
 		toggleEvent.Parent = playerScripts
 	end
 
+	-- Ensure mouse starts unlocked regardless of any engine default
+	UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+
 	UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		if gameProcessed then return end
 		if input.KeyCode == Enum.KeyCode.M then
