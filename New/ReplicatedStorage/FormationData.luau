@@ -28,6 +28,7 @@ local Config = {
 
 -- NEUTRAL Formation (Default - Everyone in own half)
 -- Used at kickoff and when no team has clear possession
+-- Shape: GK + DF + LW + RW + ST (1-1-2-1 with wingers)
 local NEUTRAL_FORMATION = {
 	{
 		Role = "GK",
@@ -57,6 +58,42 @@ local NEUTRAL_FORMATION = {
 		Role = "ST",
 		Name = "Striker",
 		Position = Vector3.new(0, 0, -0.1),
+		ShortName = "ST"
+	}
+}
+
+-- NEUTRAL_ALT Formation (Away team default)
+-- Shape: GK + LB + RB + CM + ST (2-1-1 flat back line, no wingers)
+-- Gives the away team a visually distinct kickoff shape
+local NEUTRAL_ALT_FORMATION = {
+	{
+		Role = "GK",
+		Name = "Goalkeeper",
+		Position = Vector3.new(0, 0, -0.48),
+		ShortName = "GK"
+	},
+	{
+		Role = "DF",
+		Name = "LeftBack",
+		Position = Vector3.new(-0.14, 0, -0.38),
+		ShortName = "LB"
+	},
+	{
+		Role = "LW",
+		Name = "RightBack",
+		Position = Vector3.new(0.14, 0, -0.38),
+		ShortName = "RB"
+	},
+	{
+		Role = "RW",
+		Name = "CentreMid",
+		Position = Vector3.new(0, 0, -0.22),
+		ShortName = "CM"
+	},
+	{
+		Role = "ST",
+		Name = "Striker",
+		Position = Vector3.new(0, 0, -0.07),
 		ShortName = "ST"
 	}
 }
@@ -163,7 +200,11 @@ function FormationData.GetFormationByName(name)
 end
 
 -- Get the default (neutral) formation
-function FormationData.GetDefaultFormation()
+-- Pass "AwayTeam" to get the alternate formation used by the away team
+function FormationData.GetDefaultFormation(teamName)
+	if teamName == "AwayTeam" then
+		return NEUTRAL_ALT_FORMATION
+	end
 	return NEUTRAL_FORMATION
 end
 

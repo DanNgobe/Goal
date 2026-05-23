@@ -262,7 +262,17 @@ function GameManager.Initialize()
 	end)
 	
 	Players.PlayerAdded:Connect(function(player)
+		-- Detach ball immediately when character is removed (reset/death)
+		-- so there's no window where the ball stays attached to a ghost character
+		player.CharacterRemoving:Connect(function(character)
+			if BallManager.GetCurrentOwner() == character then
+				BallManager.DetachBall()
+			end
+		end)
+
 		player.CharacterAdded:Connect(function(character)
+			-- Brief yield so physics/hierarchy is fully settled before repositioning
+			task.wait(0.1)
 			SlotManager.HandleCharacterSpawn(player, character)
 		end)
 	end)

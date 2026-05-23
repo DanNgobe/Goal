@@ -50,6 +50,8 @@ local IsSprinting    = false
 -- ── State Guard ───────────────────────────────────────────────────────────────
 -- Returns true when the match is in a state where players should be able to move
 local GameStateFolder = nil
+local IsAssigned = false  -- True once this player has joined a team
+
 local function IsActivePlay()
 	if not GameStateFolder then
 		GameStateFolder = game:GetService("ReplicatedStorage"):FindFirstChild("GameState")
@@ -91,7 +93,8 @@ local function OnHeartbeat(dt)
 	if not Humanoid then return end
 
 	-- Freeze player during warmup, goal celebrations, and match end
-	if not IsActivePlay() then
+	-- Only applies to players who have joined a team; spectators move freely
+	if IsAssigned and not IsActivePlay() then
 		if Humanoid.WalkSpeed ~= 0 then
 			Humanoid.WalkSpeed = 0
 		end
@@ -172,6 +175,16 @@ function StaminaController.Initialize()
 
 	-- Stamina update loop
 	RunService.Heartbeat:Connect(OnHeartbeat)
+
+	-- Track whether this player has joined a team (freeze only applies in-game)
+	task.spawn(function()
+		local events = game:GetService("ReplicatedStorage"):WaitForChild("Events")
+		local playerRemotes = events:WaitForChild("PlayerRemotes")
+		local playerJoined = playerRemotes:WaitForChild("PlayerJoined")
+		playerJoined.OnClientEvent:Connect(function()
+			IsAssigned = true
+		end)
+	end)
 
 	Logger:info("Stamina Controller initialized.")
 	return true

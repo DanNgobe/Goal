@@ -136,7 +136,7 @@ end
 
 -- Setup a team's initial state (all AI)
 function SlotManager.SetupTeam(teamName)
-	local formation = FormationData.GetDefaultFormation()
+	local formation = FormationData.GetDefaultFormation(teamName)
 	local team = Teams[teamName]
 	team.Slots = {}
 
@@ -306,7 +306,7 @@ function SlotManager.RemovePlayer(player)
 		slot.IsAI = true
 		
 		-- Respawn the AI NPC
-		local formation = FormationData.GetDefaultFormation()
+		local formation = FormationData.GetDefaultFormation(assignment.Team)
 		local posData = formation[slot.Index]
 		local worldPos = SlotManager.CalculateWorldPosition(assignment.Team, posData.Position)
 		slot.Model = SlotManager.SpawnCharacter(assignment.Team, slot.Role, worldPos, true)
@@ -329,8 +329,15 @@ function SlotManager.HandleCharacterSpawn(player, character)
 	local slot = team.Slots[assignment.SlotIndex]
 	if not slot then return end
 
-	local formation = FormationData.GetDefaultFormation()
+	-- Update slot to reference the new character
+	slot.Model = character
+
+	local formation = FormationData.GetDefaultFormation(assignment.Team)
 	local worldPos = SlotManager.CalculateWorldPosition(assignment.Team, formation[slot.Index].Position)
+
+	-- Wait for the HumanoidRootPart to exist before teleporting
+	local root = character:WaitForChild("HumanoidRootPart", 5)
+	if not root then return end
 
 	character:SetPrimaryPartCFrame(CFrame.new(worldPos))
 	SlotManager.ApplyTeamColors(character, assignment.Team)
@@ -434,7 +441,7 @@ function SlotManager.SwitchPlayerSlot(player, newSlotIndex)
 	oldSlot.IsAI       = true
 
 	-- Spawn a replacement AI NPC at the old slot's home position
-	local formation    = FormationData.GetDefaultFormation()
+	local formation    = FormationData.GetDefaultFormation(teamName)
 	local posData      = formation[oldSlotIdx]
 	local oldWorldPos  = SlotManager.CalculateWorldPosition(teamName, posData.Position)
 	oldSlot.HomePosition = oldWorldPos
